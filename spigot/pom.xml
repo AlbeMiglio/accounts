@@ -36,10 +36,22 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>it.mycraft</groupId>
+            <artifactId>powerlib-bukkit</artifactId>
+            <version>1.2.12</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
             <version>1.19.4-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>it.albemiglio</groupId>
+            <artifactId>accounts-core</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 </project>

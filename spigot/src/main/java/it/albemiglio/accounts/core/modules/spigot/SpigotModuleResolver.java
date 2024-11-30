@@ -1,7 +1,6 @@
-package it.albemiglio.accounts.spigot;
+package it.albemiglio.accounts.core.modules.spigot;
 
-import it.albemiglio.accounts.core.ModuleResolver;
-import it.albemiglio.accounts.core.modules.SpigotModule;
+import it.albemiglio.accounts.core.modules.ModuleResolver;
 import it.albemiglio.accounts.core.services.ModuleService;
 
 import java.util.Set;
@@ -14,6 +13,6 @@ public class SpigotModuleResolver extends ModuleResolver<SpigotModule> {
 
     @Override
     public Set<SpigotModule> fetchModules() {
-
+        return null;
     }
 }

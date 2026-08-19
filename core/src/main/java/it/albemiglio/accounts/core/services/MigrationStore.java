@@ -1,5 +1,6 @@
 package it.albemiglio.accounts.core.services;
 
+import it.albemiglio.accounts.core.objects.Rename;
 import it.albemiglio.accounts.core.objects.Task;
 
 import java.util.Collection;
@@ -31,6 +32,11 @@ public interface MigrationStore extends MigrationLog {
 
     /** Every migration on record, for reporting progress. */
     Collection<Task> all();
+
+    void record(Rename rename);
+
+    /** Renames recorded but not yet applied by this instance — the catch-up for a server that was down. */
+    Collection<Rename> pendingRenames(String instanceId);
 
     Set<String> expectedInstances(String migrationId);
 

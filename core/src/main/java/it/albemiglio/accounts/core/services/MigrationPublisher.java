@@ -6,4 +6,8 @@ import it.albemiglio.accounts.core.objects.Task;
 public interface MigrationPublisher {
 
     void publish(Task task);
+
+    /** Renames travel on the same channel; the wire form tells them apart. */
+    default void publish(it.albemiglio.accounts.core.objects.Rename rename) {
+    }
 }

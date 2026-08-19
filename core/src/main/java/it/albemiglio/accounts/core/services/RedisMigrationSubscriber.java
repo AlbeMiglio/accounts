@@ -1,5 +1,6 @@
 package it.albemiglio.accounts.core.services;
 
+import it.albemiglio.accounts.core.objects.Rename;
 import it.albemiglio.accounts.core.objects.Task;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -36,6 +37,14 @@ public class RedisMigrationSubscriber {
         this.pubSub = new JedisPubSub() {
             @Override
             public void onMessage(String channel, String message) {
+                if (Rename.looksLikeOne(message)) {
+                    try {
+                        service.handle(Rename.fromString(message));
+                    } catch (RuntimeException e) {
+                        LOG.log(Level.WARNING, "Discarding malformed rename message: " + message, e);
+                    }
+                    return;
+                }
                 Task task;
                 try {
                     task = Task.fromString(message);

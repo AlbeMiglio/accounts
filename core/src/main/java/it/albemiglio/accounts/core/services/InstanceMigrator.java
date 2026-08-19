@@ -1,6 +1,7 @@
 package it.albemiglio.accounts.core.services;
 
 import it.albemiglio.accounts.core.modules.Module;
+import it.albemiglio.accounts.core.objects.Rename;
 import it.albemiglio.accounts.core.objects.Task;
 
 import java.util.Collection;
@@ -46,6 +47,29 @@ public final class InstanceMigrator {
             log.markFailed(id, instanceId);
         } else {
             log.markApplied(id, instanceId);
+        }
+    }
+
+    /** Same contract as {@link #apply(Task)}: idempotent, all-or-marked-failed, never throws. */
+    public void apply(Rename rename) {
+        if (log.hasApplied(rename.id(), instanceId)) {
+            return;
+        }
+        boolean anyFailed = false;
+        for (Module module : modules) {
+            if (!module.isEnabled()) {
+                continue;
+            }
+            try {
+                module.rename(rename);
+            } catch (RuntimeException e) {
+                anyFailed = true;
+            }
+        }
+        if (anyFailed) {
+            log.markFailed(rename.id(), instanceId);
+        } else {
+            log.markApplied(rename.id(), instanceId);
         }
     }
 

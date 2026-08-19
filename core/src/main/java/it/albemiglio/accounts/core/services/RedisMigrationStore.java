@@ -1,5 +1,6 @@
 package it.albemiglio.accounts.core.services;
 
+import it.albemiglio.accounts.core.objects.Rename;
 import it.albemiglio.accounts.core.objects.Task;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -19,6 +20,7 @@ import java.util.Set;
 public final class RedisMigrationStore implements MigrationStore {
 
     private static final String MIGRATIONS = "accounts:migrations";
+    private static final String RENAMES = "accounts:renames";
     private static final String APPLIED = "accounts:applied:";
     private static final String EXPECTED = "accounts:expected:";
     private static final String FAILED = "accounts:failed:";
@@ -33,6 +35,26 @@ public final class RedisMigrationStore implements MigrationStore {
     public void record(Task task) {
         try (Jedis jedis = pool.getResource()) {
             jedis.hset(MIGRATIONS, InstanceMigrator.migrationId(task), task.toString());
+        }
+    }
+
+    @Override
+    public void record(Rename rename) {
+        try (Jedis jedis = pool.getResource()) {
+            jedis.hset(RENAMES, rename.id(), rename.toString());
+        }
+    }
+
+    @Override
+    public Collection<Rename> pendingRenames(String instanceId) {
+        try (Jedis jedis = pool.getResource()) {
+            List<Rename> out = new ArrayList<>();
+            for (Map.Entry<String, String> entry : jedis.hgetAll(RENAMES).entrySet()) {
+                if (!jedis.sismember(APPLIED + entry.getKey(), instanceId)) {
+                    out.add(Rename.fromString(entry.getValue()));
+                }
+            }
+            return out;
         }
     }
 

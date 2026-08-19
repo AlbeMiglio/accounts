@@ -363,6 +363,10 @@ public final class LiveTestRunner {
         @Override public Collection<Task> all() {
             return new ArrayList<>(migrations.values());
         }
+        @Override public void record(it.albemiglio.accounts.core.objects.Rename rename) { }
+        @Override public Collection<it.albemiglio.accounts.core.objects.Rename> pendingRenames(String i) {
+            return List.of();
+        }
         @Override public Set<String> expectedInstances(String id) {
             return expected.getOrDefault(id, new HashSet<>());
         }

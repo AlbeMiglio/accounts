@@ -25,6 +25,15 @@ public interface MigrationService {
     boolean isMigrationInProgress(UUID from, UUID to);
 
     /**
+     * A player kept their identity and changed their name — the other half of an identity change, and
+     * the one that matters to any store still keyed by the name. Default no-op so a caller built
+     * against a newer api than the accounts running beside it degrades to "renames are not applied"
+     * instead of failing to link.
+     */
+    default void rename(UUID uuid, String oldName, String newName) {
+    }
+
+    /**
      * Where the migration {@code from -> to} has got to: who still has to apply it, who already has.
      * Never null — a migration nobody ever recorded comes back with empty sets, which reads as neither
      * complete nor in progress.

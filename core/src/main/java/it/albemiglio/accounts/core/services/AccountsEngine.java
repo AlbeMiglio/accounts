@@ -76,6 +76,11 @@ public final class AccountsEngine implements AutoCloseable {
         service.migrate(task);
     }
 
+    /** Applies a name change across the network, the same way a uuid migration travels. */
+    public void rename(UUID uuid, String oldName, String newName) {
+        service.rename(new it.albemiglio.accounts.core.objects.Rename(uuid, oldName, newName));
+    }
+
     /** Where a migration has got to: who still owes it, who has applied it. */
     public MigrationStatus status(UUID from, UUID to) {
         return service.status(from, to);

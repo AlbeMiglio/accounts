@@ -169,7 +169,18 @@ public class ColumnReplacer extends Replacer {
                 if (codec == UuidCodec.BINARY && !prefix.isEmpty()) {
                     continue;
                 }
-                int n = count(connection, target, codec, probe);
+                int n;
+                try {
+                    n = count(connection, target, codec, probe);
+                } catch (SQLException e) {
+                    // A codec the column cannot even be compared against is not a finding: MySQL rejects
+                    // raw bytes against a utf8 text column, which only proves binary isn't the stored
+                    // form. Only the configured codec failing means the template points at nothing.
+                    if (codec == this.codec) {
+                        throw e;
+                    }
+                    continue;
+                }
                 if (codec == this.codec) {
                     configuredCount = n;
                 }

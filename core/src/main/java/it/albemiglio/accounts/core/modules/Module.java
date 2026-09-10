@@ -130,7 +130,9 @@ public abstract class Module {
             for (Replacer replacer : replacers) {
                 report.addAll(replacer.diagnose(connection, probe, name));
             }
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
+            // Not just SQLException: an unopenable file surfaces as Hikari's PoolInitializationException
+            // and one bad module must not abort the diagnosis of every module after it.
             report.add(Diagnosis.error(name, "database", "cannot open: " + e.getMessage()));
         }
         return report;

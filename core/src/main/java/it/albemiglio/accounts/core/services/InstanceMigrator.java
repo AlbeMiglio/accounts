@@ -6,6 +6,7 @@ import it.albemiglio.accounts.core.objects.Task;
 
 import java.util.Collection;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 /**
  * Applies a migration to one instance's local modules. Idempotent: if the migration is already
@@ -14,6 +15,8 @@ import java.util.UUID;
  * as failed and left un-applied, so it will be retried (the column relabel itself is idempotent).
  */
 public final class InstanceMigrator {
+
+    private static final Logger LOG = Logger.getLogger(InstanceMigrator.class.getName());
 
     private final String instanceId;
     private final Collection<Module> modules;
@@ -39,7 +42,9 @@ public final class InstanceMigrator {
                 module.execute(task.getMigration());
             } catch (RuntimeException e) {
                 // Any module failure (a MigrationException, or an unexpected one like a driver/pool
-                // error) is recorded and retried later, never propagated to crash the caller.
+                // error) is recorded and retried later, never propagated to crash the caller. Logged
+                // because the retry is the next restart: silence here is data that looks migrated.
+                LOG.warning("module " + module.getName() + " failed migration " + id + ", will retry: " + e);
                 anyFailed = true;
             }
         }
@@ -63,6 +68,7 @@ public final class InstanceMigrator {
             try {
                 module.rename(rename);
             } catch (RuntimeException e) {
+                LOG.warning("module " + module.getName() + " failed rename " + rename.id() + ", will retry: " + e);
                 anyFailed = true;
             }
         }

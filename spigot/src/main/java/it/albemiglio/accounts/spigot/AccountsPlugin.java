@@ -1,6 +1,6 @@
 package it.albemiglio.accounts.spigot;
 
-import it.albemiglio.accounts.core.modules.Diagnosis;
+import it.albemiglio.accounts.core.modules.DiagnosisReport;
 import it.albemiglio.accounts.core.modules.Module;
 import it.albemiglio.accounts.core.nbt.NbtModule;
 import it.albemiglio.accounts.core.objects.Task;
@@ -168,36 +168,7 @@ public final class AccountsPlugin extends JavaPlugin {
         }
         sender.sendMessage("Diagnosing " + modules.size() + " module(s) against " + probe + " (read-only)…");
         getServer().getScheduler().runTaskAsynchronously(this, () -> {
-            List<String> flagged = new ArrayList<>();
-            int verified = 0;
-            int blockers = 0;
-            int scanAll = 0;
-            int empty = 0;
-            for (Module module : modules) {
-                for (Diagnosis d : module.diagnose(probe)) {
-                    switch (d.getStatus()) {
-                        case VERIFIED:
-                            verified++;
-                            break;
-                        case INFO:
-                            scanAll++;
-                            break;
-                        case NOT_FOUND:
-                            empty++;
-                            break;
-                        default: // FORMAT_MISMATCH, MISSING, ERROR
-                            blockers++;
-                            flagged.add("  ⚠ " + d.line());
-                    }
-                }
-            }
-            List<String> lines = new ArrayList<>();
-            lines.add("Diagnosis vs " + probe + ": " + verified + " verified, " + blockers + " to FIX, "
-                    + scanAll + " scan-all, " + empty + " with no data for this player.");
-            lines.addAll(flagged);
-            lines.add(blockers == 0
-                    ? "✓ Looks safe — every module found this player's data in the expected encoding (or has none). Back up first anyway."
-                    : "⚠ Fix the flagged modules (wrong 'format', or a missing table/path) before migrating.");
+            List<String> lines = DiagnosisReport.of(modules, probe);
             getServer().getScheduler().runTask(this, () -> lines.forEach(sender::sendMessage));
         });
         return true;

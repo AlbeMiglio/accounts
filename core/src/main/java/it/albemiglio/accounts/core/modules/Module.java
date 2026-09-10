@@ -43,6 +43,14 @@ public abstract class Module {
         this.replacers = new LinkedHashSet<>();
     }
 
+    /**
+     * Applies a name change to this module's store. Does nothing by default: almost every plugin keys
+     * its data by uuid, and for those a rename is a non-event. Only a module whose store is keyed by
+     * the player's name — AuthMe is the case that forced this — overrides it.
+     */
+    public void rename(it.albemiglio.accounts.core.objects.Rename rename) {
+    }
+
     protected void addReplacer(Replacer replacer) {
         this.replacers.add(replacer);
     }

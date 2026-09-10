@@ -68,6 +68,13 @@ public final class AccountsPlugin extends Plugin implements MigrationService {
     }
 
     @Override
+    public void rename(UUID uuid, String oldName, String newName) {
+        if (engine != null) {
+            engine.rename(uuid, oldName, newName);
+        }
+    }
+
+    @Override
     public boolean isMigrationInProgress(UUID from, UUID to) {
         return engine != null && engine.isInProgress(from, to);
     }

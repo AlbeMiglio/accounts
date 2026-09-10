@@ -39,6 +39,8 @@ class RedisMigrationSubscriberTest {
         @Override public void markFailed(String migrationId, String instanceId) { }
         @Override public boolean recordExpectedIfAbsent(String id, Set<String> instances) { return false; }
         @Override public Collection<Task> all() { return List.of(); }
+        @Override public void record(it.albemiglio.accounts.core.objects.Rename rename) { }
+        @Override public Collection<it.albemiglio.accounts.core.objects.Rename> pendingRenames(String i) { return List.of(); }
     }
 
     private static BroadcastMigrationService service(CountingStore store) {

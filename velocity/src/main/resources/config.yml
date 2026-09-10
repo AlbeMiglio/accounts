@@ -5,3 +5,16 @@ redis:
 
 # Folder (under this plugin's data directory) holding one YAML per database to migrate.
 modules-dir: modules
+
+# Read-only admin view of the migrations still in flight: who is transferring, which instances have
+# applied it and which are still holding it open. Reachable at http://<bind>:<port>/?token=<token>
+#
+# Off unless you turn it on, and it refuses to start without a token. `bind: 127.0.0.1` means the port
+# is not reachable from outside this machine: open it over an SSH tunnel
+#   ssh -L 8081:127.0.0.1:8081 <this-server>
+# rather than binding it to a public address.
+dashboard:
+  enabled: false
+  bind: 127.0.0.1
+  port: 8081
+  token: ""

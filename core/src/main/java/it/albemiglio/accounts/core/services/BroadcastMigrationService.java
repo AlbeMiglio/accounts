@@ -1,6 +1,7 @@
 package it.albemiglio.accounts.core.services;
 
 import it.albemiglio.accounts.api.MigrationStatus;
+import it.albemiglio.accounts.core.objects.Rename;
 import it.albemiglio.accounts.core.objects.Task;
 
 import java.util.ArrayList;
@@ -40,6 +41,21 @@ public final class BroadcastMigrationService {
         store.record(task);
         migrator.apply(task);
         publisher.publish(task);
+    }
+
+    /** A name change: recorded, applied here, broadcast — the same path a uuid migration takes. */
+    public void rename(Rename rename) {
+        store.recordExpected(rename.id(), registry.activeInstances());
+        store.record(rename);
+        migrator.apply(rename);
+        publisher.publish(rename);
+    }
+
+    /** A rename broadcast by another instance (or by Nyx). */
+    public void handle(Rename rename) {
+        store.record(rename);
+        store.recordExpectedIfAbsent(rename.id(), registry.activeInstances());
+        migrator.apply(rename);
     }
 
     /** Whether every instance expected to apply this migration has done so (Nyx's unlock gate). */
@@ -98,6 +114,9 @@ public final class BroadcastMigrationService {
     public void recoverPending() {
         for (Task task : store.pending(instanceId)) {
             migrator.apply(task);
+        }
+        for (Rename rename : store.pendingRenames(instanceId)) {
+            migrator.apply(rename);
         }
     }
 }

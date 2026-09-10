@@ -6,6 +6,7 @@ import it.albemiglio.accounts.core.database.MariaDB;
 import it.albemiglio.accounts.core.database.MySQL;
 import it.albemiglio.accounts.core.database.SQLite;
 import it.albemiglio.accounts.core.modules.replacers.ColumnReplacer;
+import it.albemiglio.accounts.core.modules.replacers.NameReplacer;
 import it.albemiglio.accounts.core.modules.replacers.Replacer;
 import it.albemiglio.accounts.core.modules.replacers.UuidCodec;
 import it.albemiglio.accounts.core.nbt.NbtModule;
@@ -78,8 +79,20 @@ public class YamlModuleFactory {
                 replacers.add(buildReplacer(replacer));
             }
         }
+        List<NameReplacer> nameReplacers = new ArrayList<>();
+        List<Map<String, Object>> renameConfigs = (List<Map<String, Object>>) config.get("renames");
+        if (renameConfigs != null) {
+            for (Map<String, Object> rename : renameConfigs) {
+                nameReplacers.add(new NameReplacer(
+                        (String) rename.get("table"),
+                        (String) rename.getOrDefault("match", "username"),
+                        strings(rename.get("set-lower")),
+                        strings(rename.get("set-exact")),
+                        strings(rename.get("set-uuid"))));
+            }
+        }
         return new YamlModule(name, platform, database, replacers,
-                Boolean.TRUE.equals(config.get("disable-foreign-key-checks")));
+                Boolean.TRUE.equals(config.get("disable-foreign-key-checks")), nameReplacers);
     }
 
     @SuppressWarnings("unchecked")
@@ -133,5 +146,10 @@ public class YamlModuleFactory {
             default:
                 throw new IllegalArgumentException("Unsupported database type: " + type);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> strings(Object value) {
+        return value == null ? java.util.Collections.emptyList() : (List<String>) value;
     }
 }

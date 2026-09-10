@@ -1,0 +1,29 @@
+# AuthMe keys its data by the player's NAME, not by their uuid — its own MySQL.java has no lookup by
+# uuid at all — so a uuid migration is a non-event for it and a name change is the event that matters.
+# That is the opposite of every other template here, and the reason this file has a "renames" section
+# instead of "replacers".
+#
+# username holds the key in lower case, realname the display form, premiumUUID the Mojang identity
+# (declared in AuthMe's own config as mySQLColumnPremiumUUID). All three move together: updating only
+# the key leaves the player greeted by their old name, and the identity column is worth filling while
+# the row is open.
+#
+# Point "database" at the same database AuthMe uses. If your AuthMe stores in a file rather than SQL,
+# this module does not apply.
+name: authme
+platform: VELOCITY
+type: sql
+enabled: true
+database:
+  type: mysql
+  host: localhost
+  port: 3306
+  username: minecraft
+  password: secret
+  database: authme
+renames:
+  - table: authme
+    match: username
+    set-lower: [username]
+    set-exact: [realname]
+    set-uuid: [premiumUUID]

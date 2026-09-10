@@ -21,4 +21,11 @@ public final class RedisMigrationPublisher implements MigrationPublisher {
             jedis.publish(CHANNEL, task.toString());
         }
     }
+
+    @Override
+    public void publish(it.albemiglio.accounts.core.objects.Rename rename) {
+        try (redis.clients.jedis.Jedis jedis = pool.getResource()) {
+            jedis.publish(CHANNEL, rename.toString());
+        }
+    }
 }

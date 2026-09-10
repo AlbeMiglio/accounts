@@ -1,0 +1,295 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>accounts — migrations</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0c0e0d; --panel: #141817; --panel-2: #1b201e; --line: #262c29; --line-2: #333b37;
+    --fg: #eceeea; --muted: #7f877f; --dim: #575f59;
+    --go: #63b58a; --wait: #d9a441; --late: #d97757;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 28px -18px rgba(0,0,0,.9);
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f5f2; --panel: #fff; --panel-2: #fafaf7; --line: #e5e5df; --line-2: #d5d5cc;
+            --fg: #14171a; --muted: #6b706b; --dim: #969b96;
+            --go: #2f7d55; --wait: #a3701f; --late: #b0502e;
+            --shadow: 0 1px 2px rgba(20,23,26,.05), 0 14px 30px -20px rgba(20,23,26,.35); }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg);
+    font-family: var(--sans); font-size: 15px; line-height: 1.5;
+    background-image: radial-gradient(130% 70% at 50% -15%, rgba(120,170,145,.09), transparent 65%);
+  }
+  main { max-width: 54rem; margin: 0 auto; padding: 3.25rem 1.25rem 5rem; }
+  .label { font-family: var(--mono); font-size: .68rem; letter-spacing: .17em;
+           text-transform: uppercase; color: var(--muted); }
+
+  header { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
+           padding-bottom: 1.1rem; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -.02em; }
+  .spacer { flex: 1 1 auto; }
+  .stat { font-family: var(--mono); font-size: .76rem; color: var(--muted);
+          display: inline-flex; align-items: center; gap: .45rem; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--go);
+           animation: beat 2.4s ease-in-out infinite; flex: none; }
+  .pulse.off { background: var(--late); animation: none; }
+  @keyframes beat { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(99,181,138,.4); }
+                    50% { opacity: .5; box-shadow: 0 0 0 5px rgba(99,181,138,0); } }
+
+  #list { margin-top: 1.6rem; display: flex; flex-direction: column; gap: .8rem; }
+  .row { border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+         box-shadow: var(--shadow); overflow: hidden; animation: in .5s cubic-bezier(.2,.7,.3,1) both; }
+  .row.leaving { animation: out .55s cubic-bezier(.4,0,.6,1) both; }
+  @keyframes in  { from { opacity: 0; transform: translateY(-8px) scale(.99); } }
+  @keyframes out { to { opacity: 0; transform: translateY(6px); max-height: 0;
+                        margin-bottom: -.8rem; border-color: transparent; } }
+  .row.late { border-color: color-mix(in srgb, var(--late) 40%, var(--line)); }
+  .row.done { border-color: color-mix(in srgb, var(--go) 45%, var(--line)); }
+
+  /* ---- the face of the row: identity A becomes identity B --------------- */
+  .head { display: flex; align-items: center; gap: 1rem; padding: 1.05rem 1.15rem;
+          cursor: pointer; user-select: none; background: none; border: 0; width: 100%;
+          text-align: left; color: inherit; font: inherit; transition: background .18s ease; }
+  .head:hover { background: var(--panel-2); }
+  .head:focus-visible { outline: 2px solid var(--go); outline-offset: -3px; }
+  .glyphs { display: flex; align-items: center; gap: .55rem; flex: none; }
+  .glyph { width: 34px; height: 34px; border-radius: 9px; padding: 4px; flex: none;
+           background: var(--panel-2); border: 1px solid var(--line); }
+  .glyph.to { box-shadow: 0 0 0 1px color-mix(in srgb, var(--go) 40%, transparent); }
+  .becomes { color: var(--dim); font-size: .9rem; }
+  .who { min-width: 0; flex: 1 1 auto; }
+  .name { font-weight: 600; letter-spacing: -.012em; overflow: hidden;
+          text-overflow: ellipsis; white-space: nowrap; }
+  .sub { font-size: .78rem; color: var(--muted); margin-top: .1rem; }
+  .sub b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .right { display: flex; align-items: center; gap: .8rem; flex: none; }
+  .clock { font-family: var(--mono); font-size: .74rem; color: var(--muted);
+           font-variant-numeric: tabular-nums; }
+  .row.late .clock { color: var(--late); }
+  .row.done .clock { color: var(--go); }
+  .chev { width: 9px; height: 9px; border-right: 1.5px solid var(--dim);
+          border-bottom: 1.5px solid var(--dim); transform: rotate(45deg) translate(-2px,-2px);
+          transition: transform .25s cubic-bezier(.2,.7,.3,1); }
+  .row.open .chev { transform: rotate(225deg) translate(-2px,-2px); }
+
+  .cells { display: grid; gap: 3px; padding: 0 1.15rem 1rem; }
+  .cell { height: 5px; border-radius: 3px; background: var(--panel-2);
+          border: 1px solid var(--line); position: relative; overflow: hidden; }
+  .cell.on { background: var(--go); border-color: var(--go);
+             animation: fill .45s cubic-bezier(.2,.7,.3,1) both; }
+  @keyframes fill { from { transform: scaleX(0); transform-origin: left; } }
+  .cell.off::after { content: ""; position: absolute; inset: 0;
+        background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--wait) 38%, transparent), transparent);
+        transform: translateX(-100%); animation: sweep 2.8s linear infinite; }
+  @keyframes sweep { to { transform: translateX(100%); } }
+
+  /* ---- the detail, only when asked for ---------------------------------- */
+  .detail { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s cubic-bezier(.2,.7,.3,1); }
+  .row.open .detail { grid-template-rows: 1fr; }
+  .detail > .inner { overflow: hidden; }
+  .pad { border-top: 1px solid var(--line); padding: 1rem 1.15rem 1.15rem;
+         display: grid; gap: .9rem; background: var(--panel-2); }
+  .field .label { display: block; margin-bottom: .3rem; }
+  .val { display: flex; align-items: center; gap: .5rem; }
+  .val code { font-family: var(--mono); font-size: .76rem; color: var(--fg);
+              word-break: break-all; line-height: 1.4; }
+  .copy { font: inherit; font-family: var(--mono); font-size: .66rem; letter-spacing: .08em;
+          text-transform: uppercase; color: var(--muted); background: var(--panel);
+          border: 1px solid var(--line); border-radius: 6px; padding: .12rem .45rem;
+          cursor: pointer; flex: none; transition: color .15s, border-color .15s; }
+  .copy:hover { color: var(--fg); border-color: var(--line-2); }
+  .copy.ok { color: var(--go); border-color: color-mix(in srgb, var(--go) 45%, var(--line)); }
+  .instances { display: flex; flex-wrap: wrap; gap: .35rem; font-family: var(--mono); font-size: .73rem; }
+  .chip { display: inline-flex; align-items: center; gap: .35rem; padding: .1rem .55rem;
+          border: 1px solid var(--line); border-radius: 999px; color: var(--dim); }
+  .chip.pending { color: var(--wait); border-color: color-mix(in srgb, var(--wait) 35%, var(--line)); }
+  .chip .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+  .chip.pending .dot { animation: beat 1.8s ease-in-out infinite; }
+
+  .empty { border: 1px dashed var(--line); border-radius: 14px; padding: 3.5rem 1rem;
+           text-align: center; color: var(--muted); }
+  .empty .label { display: block; margin-bottom: .5rem; }
+  .err { color: var(--late); }
+  @media (max-width: 30rem) {
+    .head { gap: .75rem; padding: .9rem; }
+    .cells { padding: 0 .9rem .9rem; }
+    .clock { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+<main>
+  <header>
+    <h1>Transfers</h1>
+    <span class="spacer"></span>
+    <span class="stat"><span class="pulse" id="pulse"></span><span id="state">connecting</span></span>
+    <span class="stat" id="done-count"></span>
+  </header>
+  <div id="list"></div>
+</main>
+<script>
+  const token = new URLSearchParams(location.search).get('token') || '';
+  const list = document.getElementById('list');
+  const stateEl = document.getElementById('state');
+  const pulseEl = document.getElementById('pulse');
+  const doneEl = document.getElementById('done-count');
+
+  const seen = new Map();
+  let completed = 0;
+  const key = m => m.from + '>' + m.to;
+  const esc = s => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+  const since = ms => {
+    const s = Math.floor(ms / 1000);
+    return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + String(s % 60).padStart(2, '0') + 's';
+  };
+
+  /* An identity is a 32-hex string nobody can read. Draw it instead: same UUID always gives the same
+     mark and the same hue, so two rows for the same player are recognisably the same account. */
+  function hash(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return h >>> 0;
+  }
+  function glyph(uuid, cls) {
+    const h = hash(uuid);
+    const hue = h % 360;
+    const light = document.documentElement.dataset.light === '1';
+    const fill = `hsl(${hue} 45% ${light ? '42%' : '62%'})`;
+    const back = `hsl(${hue} 30% ${light ? '95%' : '16%'})`;
+    let cells = '';
+    for (let col = 0; col < 3; col++) {
+      for (let rowI = 0; rowI < 5; rowI++) {
+        if ((h >> ((col * 5 + rowI) % 30)) & 1) {
+          cells += `<rect x="${col}" y="${rowI}" width="1" height="1" rx=".22"/>`;
+          if (col < 2) cells += `<rect x="${4 - col}" y="${rowI}" width="1" height="1" rx=".22"/>`;
+        }
+      }
+    }
+    return `<svg class="glyph ${cls}" viewBox="0 0 5 5" aria-hidden="true" style="background:${back}">
+              <g fill="${fill}">${cells}</g></svg>`;
+  }
+
+  function render(m, node) {
+    const pending = m.waitingOn || [], applied = m.applied || [];
+    const cells = Array.from({length: m.expectedCount}, (_, i) =>
+      `<span class="cell ${i < m.appliedCount ? 'on' : 'off'}"></span>`).join('');
+    const chips = list => list.map(([n, state]) =>
+      `<span class="chip ${state}"><i class="dot"></i>${esc(n)}</span>`).join('');
+    node.innerHTML = `
+      <button class="head" aria-expanded="false">
+        <span class="glyphs">${glyph(m.from, 'from')}<span class="becomes">→</span>${glyph(m.to, 'to')}</span>
+        <span class="who">
+          <span class="name">${esc(m.username || 'unknown player')}</span>
+          <span class="sub">identity moved on <b>${m.appliedCount}</b> of <b>${m.expectedCount}</b> servers</span>
+        </span>
+        <span class="right"><span class="clock" data-clock></span><i class="chev"></i></span>
+      </button>
+      <div class="cells" style="grid-template-columns: repeat(${m.expectedCount}, 1fr)">${cells}</div>
+      <div class="detail"><div class="inner"><div class="pad">
+        <div class="field"><span class="label">previous identity</span>
+          <span class="val"><code>${esc(m.from)}</code><button class="copy" data-copy="${esc(m.from)}">copy</button></span></div>
+        <div class="field"><span class="label">new identity</span>
+          <span class="val"><code>${esc(m.to)}</code><button class="copy" data-copy="${esc(m.to)}">copy</button></span></div>
+        <div class="field"><span class="label">servers</span>
+          <span class="instances">${chips(applied.map(n => [n, '']).concat(pending.map(n => [n, 'pending'])))}</span></div>
+      </div></div></div>`;
+    const head = node.querySelector('.head');
+    head.addEventListener('click', () => {
+      const open = node.classList.toggle('open');
+      head.setAttribute('aria-expanded', String(open));
+    });
+    node.querySelectorAll('.copy').forEach(btn => btn.addEventListener('click', event => {
+      event.stopPropagation();
+      navigator.clipboard?.writeText(btn.dataset.copy);
+      btn.textContent = 'copied'; btn.classList.add('ok');
+      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('ok'); }, 1400);
+    }));
+  }
+
+  function tickClocks() {
+    const now = Date.now();
+    for (const [, entry] of seen) {
+      const clock = entry.node.querySelector('[data-clock]');
+      if (!clock) continue;
+      const age = now - entry.firstSeen;
+      clock.textContent = since(age);
+      entry.node.classList.toggle('late', age > 45000 && !entry.node.classList.contains('done'));
+    }
+  }
+
+  function retire(entry, k) {
+    entry.node.classList.add('done');
+    entry.node.querySelectorAll('.cell').forEach(c => { c.className = 'cell on'; });
+    const total = entry.data.expectedCount;
+    const sub = entry.node.querySelector('.sub');
+    if (sub) sub.innerHTML = `identity moved on <b>${total}</b> of <b>${total}</b> servers`;
+    const clock = entry.node.querySelector('[data-clock]');
+    if (clock) clock.textContent = 'done';
+    seen.delete(k);
+    doneEl.textContent = ++completed + ' completed';
+    setTimeout(() => {
+      entry.node.classList.add('leaving');
+      setTimeout(() => entry.node.remove(), 560);
+    }, 1700);
+  }
+
+  async function poll() {
+    try {
+      const r = await fetch('api/migrations?token=' + encodeURIComponent(token), {cache: 'no-store'});
+      if (!r.ok) throw new Error(r.status === 401 ? 'token rejected' : 'HTTP ' + r.status);
+      const rows = (await r.json()).inFlight || [];
+      pulseEl.classList.remove('off');
+      stateEl.textContent = rows.length ? rows.length + (rows.length > 1 ? ' open' : ' open') : 'idle';
+
+      const live = new Set();
+      for (const m of rows) {
+        const k = key(m); live.add(k);
+        let entry = seen.get(k);
+        if (!entry) {
+          const node = document.createElement('div');
+          node.className = 'row';
+          list.prepend(node);
+          entry = {firstSeen: Date.now(), node, data: null};
+          seen.set(k, entry);
+        }
+        if (JSON.stringify(entry.data) !== JSON.stringify(m)) {
+          const wasOpen = entry.node.classList.contains('open');
+          entry.data = m;
+          render(m, entry.node);
+          if (wasOpen) {
+            entry.node.classList.add('open');
+            entry.node.querySelector('.head').setAttribute('aria-expanded', 'true');
+          }
+        }
+      }
+      for (const [k, entry] of Array.from(seen)) if (!live.has(k)) retire(entry, k);
+
+      const hasRows = list.querySelector('.row');
+      const empty = list.querySelector('.empty');
+      if (!hasRows && !empty) {
+        list.insertAdjacentHTML('beforeend',
+          '<div class="empty"><span class="label">nothing in transit</span>' +
+          'Every migration on record has been applied by every server.</div>');
+      } else if (hasRows && empty) {
+        empty.remove();
+      }
+    } catch (e) {
+      pulseEl.classList.add('off');
+      stateEl.innerHTML = '<span class="err">' + esc(e.message) + '</span>';
+    }
+  }
+
+  if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+    document.documentElement.dataset.light = '1';
+  }
+  poll();
+  setInterval(poll, 2000);
+  setInterval(tickClocks, 1000);
+  // A background tab has its timers throttled to a crawl, so coming back to the panel would show a
+  // frozen picture for a moment. Catch up the instant it is looked at again.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { poll(); tickClocks(); }
+  });
+</script>

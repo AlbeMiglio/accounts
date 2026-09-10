@@ -11,6 +11,7 @@ import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import it.albemiglio.accounts.api.MigrationService;
 import it.albemiglio.accounts.api.MigrationStatus;
+import it.albemiglio.accounts.core.dashboard.MigrationDashboard;
 import it.albemiglio.accounts.core.services.AccountsEngine;
 import it.albemiglio.accounts.core.services.InstanceId;
 import it.albemiglio.accounts.core.services.ModuleService;
@@ -38,6 +39,7 @@ public class AccountsPlugin implements MigrationService {
     private final Path dataDirectory;
 
     private AccountsEngine engine;
+    private MigrationDashboard dashboard;
 
     @Inject
     public AccountsPlugin(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
@@ -66,6 +68,15 @@ public class AccountsPlugin implements MigrationService {
                     InstanceId.loadOrCreate(dataDirectory),
                     moduleService.getModules());
 
+            Map<String, Object> dashboardConfig = section(config, "dashboard");
+            if (Boolean.TRUE.equals(dashboardConfig.get("enabled"))) {
+                String bind = (String) dashboardConfig.getOrDefault("bind", "127.0.0.1");
+                int dashboardPort = ((Number) dashboardConfig.getOrDefault("port", 8081)).intValue();
+                this.dashboard = MigrationDashboard.start(bind, dashboardPort,
+                        (String) dashboardConfig.getOrDefault("token", ""), engine::inFlight);
+                logger.info("Migration dashboard on http://{}:{} (token required)", bind, this.dashboard.port());
+            }
+
             CommandManager commands = proxy.getCommandManager();
             CommandMeta meta = commands.metaBuilder("accounts").build();
             commands.register(meta, new MigrateCommand(engine));
@@ -78,6 +89,9 @@ public class AccountsPlugin implements MigrationService {
 
     @Subscribe
     public void onShutdown(ProxyShutdownEvent event) {
+        if (dashboard != null) {
+            dashboard.close();
+        }
         if (engine != null) {
             engine.close();
         }
@@ -87,6 +101,13 @@ public class AccountsPlugin implements MigrationService {
     public void migrate(UUID from, UUID to, String username) {
         if (engine != null) {
             engine.migrate(from, to, username);
+        }
+    }
+
+    @Override
+    public void rename(UUID uuid, String oldName, String newName) {
+        if (engine != null) {
+            engine.rename(uuid, oldName, newName);
         }
     }
 

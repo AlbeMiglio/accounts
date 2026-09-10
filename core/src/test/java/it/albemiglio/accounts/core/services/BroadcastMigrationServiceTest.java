@@ -88,6 +88,24 @@ class BroadcastMigrationServiceTest {
             return true;
         }
 
+        final Map<String, it.albemiglio.accounts.core.objects.Rename> renames = new HashMap<>();
+
+        @Override
+        public void record(it.albemiglio.accounts.core.objects.Rename rename) {
+            renames.put(rename.id(), rename);
+        }
+
+        @Override
+        public Collection<it.albemiglio.accounts.core.objects.Rename> pendingRenames(String instanceId) {
+            List<it.albemiglio.accounts.core.objects.Rename> out = new ArrayList<>();
+            for (Map.Entry<String, it.albemiglio.accounts.core.objects.Rename> e : renames.entrySet()) {
+                if (!applied.getOrDefault(e.getKey(), Set.of()).contains(instanceId)) {
+                    out.add(e.getValue());
+                }
+            }
+            return out;
+        }
+
         @Override
         public Collection<Task> all() {
             return new ArrayList<>(recorded.values());

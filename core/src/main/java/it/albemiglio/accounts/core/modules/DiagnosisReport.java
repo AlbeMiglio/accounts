@@ -23,6 +23,7 @@ public final class DiagnosisReport {
         int blockers = 0;
         int scanAll = 0;
         int empty = 0;
+        int held = 0;
         for (Module module : modules) {
             for (Diagnosis d : module.diagnose(probe)) {
                 switch (d.getStatus()) {
@@ -35,6 +36,10 @@ public final class DiagnosisReport {
                     case NOT_FOUND:
                         empty++;
                         break;
+                    case HELD_BY_PLUGIN:
+                        held++;
+                        flagged.add("  · " + d.line());
+                        break;
                     default: // FORMAT_MISMATCH, MISSING, ERROR
                         blockers++;
                         flagged.add("  ⚠ " + d.line());
@@ -43,7 +48,8 @@ public final class DiagnosisReport {
         }
         List<String> lines = new ArrayList<>();
         lines.add("Diagnosis vs " + probe + ": " + verified + " verified, " + blockers + " to FIX, "
-                + scanAll + " scan-all, " + empty + " with no data for this player.");
+                + scanAll + " scan-all, " + empty + " with no data for this player"
+                + (held > 0 ? ", " + held + " waiting for a restart." : "."));
         lines.addAll(flagged);
         lines.add(blockers == 0
                 ? "✓ Looks safe — every module found this player's data in the expected encoding (or has none). Back up first anyway."

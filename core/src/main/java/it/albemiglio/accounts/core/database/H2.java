@@ -49,20 +49,36 @@ public class H2 extends DB {
 
     private final String h2Version;
     private final Path driverCacheDir;
+    /** Set when the owning plugin shades H2: its own jar and driver class, instead of a stock download. */
+    private final String driverJar;
+    private final String driverClass;
 
     private URLClassLoader driverLoader;
     private Driver driver;
 
     public H2(String host, int port, String username, String password, String database, String h2Version) {
-        this(host, port, username, password, database, h2Version, Paths.get("plugins", "Accounts", "h2-drivers"));
+        this(host, port, username, password, database, h2Version, null, null);
+    }
+
+    public H2(String host, int port, String username, String password, String database, String h2Version,
+              String driverJar, String driverClass) {
+        this(host, port, username, password, database, h2Version,
+                Paths.get("plugins", "Accounts", "h2-drivers"), driverJar, driverClass);
     }
 
     H2(String host, int port, String username, String password, String database, String h2Version,
        Path driverCacheDir) {
+        this(host, port, username, password, database, h2Version, driverCacheDir, null, null);
+    }
+
+    H2(String host, int port, String username, String password, String database, String h2Version,
+       Path driverCacheDir, String driverJar, String driverClass) {
         super(host, port, username, password, database);
         this.type = DBType.H2;
         this.h2Version = h2Version;
         this.driverCacheDir = driverCacheDir;
+        this.driverJar = driverJar;
+        this.driverClass = driverClass == null || driverClass.trim().isEmpty() ? "org.h2.Driver" : driverClass;
     }
 
     @Override
@@ -75,7 +91,7 @@ public class H2 extends DB {
     /** Informational only here: the driver is loaded from the version-pinned jar, never via Hikari. */
     @Override
     public String driverClassName() {
-        return "org.h2.Driver";
+        return driverClass;
     }
 
     @Override
@@ -224,6 +240,9 @@ public class H2 extends DB {
     }
 
     private Path resolveDriverJar() {
+        if (driverJar != null && !driverJar.trim().isEmpty()) {
+            return pluginDriverJar();
+        }
         Path jar = driverCacheDir.resolve("h2-" + h2Version + ".jar");
         if (!Files.isRegularFile(jar)) {
             try {
@@ -237,6 +256,34 @@ public class H2 extends DB {
         }
         verifyChecksum(jar);
         return jar;
+    }
+
+    /**
+     * The owning plugin's own H2 jar. A plugin that shades H2 writes its relocated class names into the
+     * store's type metadata (GravesX files name {@code com.ranull.graves.libraries.h2...}), so a stock
+     * driver reads them back as "File corrupted" — only the plugin's jar can open the file at all. Its
+     * name usually carries a build hash, so the last path segment may end in {@code *}; the newest match
+     * wins. No checksum here: this jar is the server's own, not something we fetched.
+     */
+    private Path pluginDriverJar() {
+        Path configured = Paths.get(driverJar).toAbsolutePath();
+        String name = configured.getFileName().toString();
+        if (!name.endsWith("*")) {
+            if (!Files.isRegularFile(configured)) {
+                throw new MigrationException("driver-jar " + configured + " does not exist — it is the "
+                        + "owning plugin's own H2 jar, which it usually writes on first start.");
+            }
+            return configured;
+        }
+        String stem = name.substring(0, name.length() - 1);
+        try (java.util.stream.Stream<Path> found = Files.list(configured.getParent())) {
+            return found.filter(candidate -> candidate.getFileName().toString().startsWith(stem))
+                    .max(java.util.Comparator.comparingLong(candidate -> candidate.toFile().lastModified()))
+                    .orElseThrow(() -> new MigrationException("no driver-jar matches " + configured
+                            + " — the owning plugin writes it on first start."));
+        } catch (IOException e) {
+            throw new MigrationException("could not list " + configured.getParent(), e);
+        }
     }
 
     private void downloadDriver(Path jar) throws IOException {
@@ -320,10 +367,10 @@ public class H2 extends DB {
             driverLoader = new URLClassLoader(new URL[]{jar.toUri().toURL()}, parent);
             // Instantiated directly and used as a plain java.sql.Driver: DriverManager would filter
             // it out again, because it only hands drivers to callers that share their classloader.
-            return (Driver) Class.forName("org.h2.Driver", true, driverLoader)
+            return (Driver) Class.forName(driverClass, true, driverLoader)
                     .getDeclaredConstructor().newInstance();
         } catch (IOException | ReflectiveOperationException e) {
-            throw new MigrationException("could not load org.h2.Driver from " + jar.toAbsolutePath(), e);
+            throw new MigrationException("could not load " + driverClass + " from " + jar.toAbsolutePath(), e);
         }
     }
 }

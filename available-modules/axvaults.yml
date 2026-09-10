@@ -2,9 +2,9 @@
 # H2.java CREATE TABLE: axvaults_data(uuid VARCHAR(36) dashed, storage blob). The plugin's DEFAULT
 # backend is H2 2.1.214 (runtime-fetched via Zapper, Libraries.java) — pinned below; the engine fetches
 # that exact driver, sniffs the store header and refuses a mismatched file instead of corrupting it.
-# AxVaults created its H2 tables backtick-quoted lowercase in MODE=MySQL, so the replacers use
-# double-quoted names (H2 would upper-case them unquoted). For the sqlite/mysql alternatives use the
-# commented blocks AND drop the double quotes from the replacers (plain axvaults_data / uuid).
+# The CREATE TABLE is backtick-quoted lowercase, but this H2 url carries no MODE=MySQL: the live
+# database (2.9.2) holds AXVAULTS_DATA(ID, UUID, STORAGE, ICON), upper-cased and unquoted. For the
+# sqlite/mysql alternatives use the commented blocks AND lowercase the replacer names.
 # axvaults_blocks is location-keyed (no uuid); vault item blobs may embed skull uuids (cosmetic).
 # Run with the server stopped — vaults are cached in RAM and auto-saved every 5 minutes.
 name: axvaults
@@ -15,7 +15,9 @@ database:
   type: h2
   database: plugins/AxVaults/data
   h2-version: "2.1.214"
-  username: sa
+  # AxVaults opens H2 with a null user (new JdbcConnection(url, new Properties(), null, null, false)),
+  # so the database has no "sa" — connecting as sa is rejected with "Wrong user name or password".
+  username: ""
   password: ""
 # database:
 #   type: sqlite
@@ -28,8 +30,8 @@ database:
 #   password: secret
 #   database: axvaults
 replacers:
-  - table: '"axvaults_data"'
-    column: '"uuid"'
+  - table: AXVAULTS_DATA
+    column: UUID
 # MySQL only (ephemeral cross-server sync queue, unquoted):
 #  - table: axvaults_messages
 #    column: uuid

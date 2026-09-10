@@ -83,6 +83,9 @@ public final class RedisMigrationStore implements MigrationStore {
     public void markApplied(String migrationId, String instanceId) {
         try (Jedis jedis = pool.getResource()) {
             jedis.sadd(APPLIED + migrationId, instanceId);
+            // An instance that failed and then succeeded on a retry is not a failure any more; leaving
+            // it listed leaves an operator reading a stale alarm long after the data moved.
+            jedis.srem(FAILED + migrationId, instanceId);
         }
     }
 

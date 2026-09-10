@@ -13,7 +13,6 @@ import it.albemiglio.accounts.core.services.MigrationArgs;
 import it.albemiglio.accounts.core.services.ModuleService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
@@ -33,38 +32,62 @@ public final class AccountsPlugin extends JavaPlugin {
     private AccountsEngine engine;
     private List<Module> modules;
 
+    /**
+     * Applies whatever this server still owes before any other plugin has opened a file. An embedded
+     * database (H2, SQLite) belongs to the plugin that opens it for as long as the server runs, so a
+     * migration broadcast while the server was up could not touch it — and waiting for the next
+     * onEnable is no good either, since plugins like TicketManagerCore or GravesX enable first and take
+     * the lock. onLoad runs before every onEnable, which makes it the only moment those files are free.
+     */
     @Override
-    public void onEnable() {
+    public void onLoad() {
         saveDefaultConfig();
-        FileConfiguration config = getConfig();
         Path dataDir = getDataFolder().toPath();
-        Path modulesDir = dataDir.resolve(config.getString("modules-dir", "modules"));
+        Path modulesDir = dataDir.resolve(getConfig().getString("modules-dir", "modules"));
         try {
             Files.createDirectories(modulesDir);
         } catch (IOException e) {
             getLogger().severe("Could not create the modules directory: " + e.getMessage());
             return;
         }
-
         ModuleService moduleService = new ModuleService(count -> { });
         moduleService.loadModules(modulesDir);
         moduleService.loadJarModules(dataDir.resolve("jar-modules"));
         moduleService.loadPluginJarModules(dataDir.toAbsolutePath().getParent());
+        this.modules = new ArrayList<>(moduleService.getModules());
+        try {
+            AccountsEngine.catchUp(
+                    getConfig().getString("redis.host", "localhost"),
+                    getConfig().getInt("redis.port", 6379),
+                    getConfig().getString("redis.password", ""),
+                    InstanceId.loadOrCreate(dataDir),
+                    modules);
+        } catch (RuntimeException e) {
+            // Redis being unreachable at load must not stop the server; onEnable recovers what it can.
+            getLogger().warning("Could not apply pending migrations at load: " + e);
+        }
+    }
+
+    @Override
+    public void onEnable() {
+        if (modules == null) {
+            getLogger().severe("Accounts did not load its modules; not starting.");
+            return;
+        }
+        Path dataDir = getDataFolder().toPath();
 
         // When the world is being migrated on disk (NbtModule), also migrate whatever is loaded in
         // memory through the Bukkit API, so the server's next save doesn't overwrite the rewrite.
-        List<Module> modules = new ArrayList<>(moduleService.getModules());
         if (modules.stream().anyMatch(module -> module instanceof NbtModule)) {
             LiveWorldModule liveWorld = new LiveWorldModule(this);
             liveWorld.enable();
             modules.add(liveWorld);
         }
 
-        this.modules = modules;
         this.engine = AccountsEngine.start(
-                config.getString("redis.host", "localhost"),
-                config.getInt("redis.port", 6379),
-                config.getString("redis.password", ""),
+                getConfig().getString("redis.host", "localhost"),
+                getConfig().getInt("redis.port", 6379),
+                getConfig().getString("redis.password", ""),
                 InstanceId.loadOrCreate(dataDir),
                 modules);
 

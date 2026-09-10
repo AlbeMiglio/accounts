@@ -6,6 +6,7 @@ import it.albemiglio.accounts.core.objects.Task;
 
 import java.util.Collection;
 import java.util.UUID;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -44,7 +45,8 @@ public final class InstanceMigrator {
                 // Any module failure (a MigrationException, or an unexpected one like a driver/pool
                 // error) is recorded and retried later, never propagated to crash the caller. Logged
                 // because the retry is the next restart: silence here is data that looks migrated.
-                LOG.warning("module " + module.getName() + " failed migration " + id + ", will retry: " + e);
+                LOG.log(Level.WARNING, "module " + module.getName() + " failed migration " + id
+                        + ", will retry at the next start", e);
                 anyFailed = true;
             }
         }
@@ -68,7 +70,8 @@ public final class InstanceMigrator {
             try {
                 module.rename(rename);
             } catch (RuntimeException e) {
-                LOG.warning("module " + module.getName() + " failed rename " + rename.id() + ", will retry: " + e);
+                LOG.log(Level.WARNING, "module " + module.getName() + " failed rename " + rename.id()
+                        + ", will retry at the next start", e);
                 anyFailed = true;
             }
         }

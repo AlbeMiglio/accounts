@@ -133,9 +133,38 @@ public abstract class Module {
         } catch (SQLException | RuntimeException e) {
             // Not just SQLException: an unopenable file surfaces as Hikari's PoolInitializationException
             // and one bad module must not abort the diagnosis of every module after it.
-            report.add(Diagnosis.error(name, "database", "cannot open: " + e.getMessage()));
+            report.add(heldOpenElsewhere(e)
+                    ? Diagnosis.heldByPlugin(name, "database", rootMessage(e))
+                    : Diagnosis.error(name, "database", "cannot open: " + e.getMessage()));
         }
         return report;
+    }
+
+    /**
+     * Whether the file is simply open in the plugin that owns it. H2 answers 90020 and SQLite "database
+     * is locked"; H2 codes are matched rather than their text, because a plugin's shaded H2 cannot always
+     * load its own message bundle and answers "(Message 90020 not found)".
+     */
+    private static boolean heldOpenElsewhere(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            String message = String.valueOf(cause.getMessage());
+            if (message.contains("90020") || message.contains("already in use")
+                    || message.contains("database is locked")) {
+                return true;
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+        }
+        return false;
+    }
+
+    private static String rootMessage(Throwable error) {
+        Throwable cause = error;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return String.valueOf(cause.getMessage());
     }
 
     /**

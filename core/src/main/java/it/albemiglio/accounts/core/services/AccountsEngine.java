@@ -37,9 +37,7 @@ public final class AccountsEngine implements AutoCloseable {
 
     public static AccountsEngine start(String host, int port, String password,
                                        String instanceId, Collection<Module> modules) {
-        JedisPool pool = (password == null || password.isEmpty())
-                ? new JedisPool(host, port)
-                : new JedisPool(new JedisPoolConfig(), host, port, 2000, password);
+        JedisPool pool = newPool(host, port, password);
 
         RedisMigrationStore store = new RedisMigrationStore(pool);
         RedisInstanceRegistry registry = new RedisInstanceRegistry(pool, instanceId);
@@ -61,6 +59,30 @@ public final class AccountsEngine implements AutoCloseable {
         heartbeat.scheduleAtFixedRate(registry::heartbeat, 10, 10, TimeUnit.SECONDS);
 
         return new AccountsEngine(service, subscriber, heartbeat, pool);
+    }
+
+    /**
+     * Applies what this instance still owes, then lets go of Redis — no subscriber, no heartbeat.
+     * A Bukkit plugin calls this from {@code onLoad}: an embedded database (H2, SQLite) is held open by
+     * the plugin that owns it for as long as the server runs, so a migration that arrived while the
+     * server was up could never touch it. onLoad is the one moment nothing has opened anything yet, and
+     * it runs before every plugin's onEnable — including the ones that would otherwise win the lock.
+     * The full {@link #start} that follows recovers the same tasks again; apply is idempotent.
+     */
+    public static void catchUp(String host, int port, String password, String instanceId,
+                               Collection<Module> modules) {
+        try (JedisPool pool = newPool(host, port, password)) {
+            RedisMigrationStore store = new RedisMigrationStore(pool);
+            new BroadcastMigrationService(instanceId, new InstanceMigrator(instanceId, modules, store),
+                    store, new RedisMigrationPublisher(pool), new RedisInstanceRegistry(pool, instanceId))
+                    .recoverPending();
+        }
+    }
+
+    private static JedisPool newPool(String host, int port, String password) {
+        return (password == null || password.isEmpty())
+                ? new JedisPool(host, port)
+                : new JedisPool(new JedisPoolConfig(), host, port, 2000, password);
     }
 
     public void migrate(Task task) {

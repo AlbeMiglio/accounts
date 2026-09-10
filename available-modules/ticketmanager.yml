@@ -21,7 +21,8 @@ database:
   type: h2
   database: plugins/TicketManager/TicketManager-H2-V10.db
   h2-version: "2.3.232"
-  username: sa
+  # TicketManager creates the database with no user, so there is no "sa" to log in as.
+  username: ""
   password: ""
 replacers:
   - table: TICKETMANAGER_V10_TICKETS

@@ -1,0 +1,22 @@
+# HMCCosmetics (Hibiscus Studios). One row per player holding the serialized cosmetic set: default
+# SQLite plugins/HMCCosmetics/database.db, table COSMETICDATABASE, column UUID (VARCHAR(36) PRIMARY
+# KEY) = dashed UUID.toString(). COSMETICS is an opaque blob of equipped cosmetic ids — no uuid inside.
+# For the MySQL backend (config.yml -> mysql) swap the database block; the table and column keep their
+# names. Run with the server stopped: the plugin writes a player's row back on quit.
+name: hmccosmetics
+platform: SPIGOT
+type: sql
+enabled: true
+database:
+  type: sqlite
+  database: plugins/HMCCosmetics/database.db
+# database:
+#   type: mysql
+#   host: localhost
+#   port: 3306
+#   username: minecraft
+#   password: secret
+#   database: minecraft
+replacers:
+  - table: COSMETICDATABASE
+    column: UUID

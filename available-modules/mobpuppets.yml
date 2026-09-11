@@ -1,0 +1,23 @@
+# MobPuppets. Each puppet row carries its own mob uuid plus the player who owns it: H2 at
+# plugins/MobPuppets/data/puppets, table "public"."pp_pedine", column "owner_uuid" = dashed
+# UUID.toString(). "mob_uuid" is the entity, not a player — left alone.
+#
+# Two things this database only gives up on its own terms, both confirmed against a live 
+# install: the tables are quoted lower case inside a lower-case "public" schema, which only
+# DATABASE_TO_LOWER=TRUE resolves (without it the DDL replay fails with Schema "public" not found), and
+# it was created with no user, so there is no "sa" to log in as.
+# Run with the server stopped — H2 belongs to whichever process opened it.
+name: mobpuppets
+platform: SPIGOT
+type: sql
+enabled: true
+database:
+  type: h2
+  database: plugins/MobPuppets/data/puppets
+  h2-version: "2.3.232"
+  url-options: "DATABASE_TO_LOWER=TRUE"
+  username: ""
+  password: ""
+replacers:
+  - table: '"public"."pp_pedine"'
+    column: '"owner_uuid"'

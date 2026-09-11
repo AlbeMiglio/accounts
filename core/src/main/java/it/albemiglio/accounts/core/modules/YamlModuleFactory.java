@@ -142,7 +142,9 @@ public class YamlModuleFactory {
                 return new H2(host, port,
                         username == null ? "sa" : username,
                         password == null ? "" : password,
-                        database, h2Version);
+                        database, h2Version,
+                        (String) config.get("driver-jar"),
+                        (String) config.get("driver-class"));
             default:
                 throw new IllegalArgumentException("Unsupported database type: " + type);
         }

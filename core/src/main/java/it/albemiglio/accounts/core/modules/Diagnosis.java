@@ -24,6 +24,12 @@ public final class Diagnosis {
         MISSING,
         /** Probing the target failed. */
         ERROR,
+        /**
+         * The database belongs to a plugin that has it open — an embedded H2 or SQLite file is exclusive
+         * to whichever process opened it. Nothing to fix: the migration reaches it at the next start,
+         * where accounts runs before any plugin has taken a file.
+         */
+        HELD_BY_PLUGIN,
         /** Nothing to verify: a scan-all module (world NBT / vanilla JSON) matches every encoding by design. */
         INFO
     }
@@ -62,6 +68,15 @@ public final class Diagnosis {
 
     public static Diagnosis error(String module, String location, String why) {
         return new Diagnosis(module, location, Status.ERROR, 0, why);
+    }
+
+    /**
+     * An embedded database the owning plugin holds open. Read as a failure it is a false alarm an
+     * operator soon learns to ignore, which is exactly what a pre-flight cannot afford.
+     */
+    public static Diagnosis heldByPlugin(String module, String location, String why) {
+        return new Diagnosis(module, location, Status.HELD_BY_PLUGIN, 0,
+                "held open by the plugin that owns it; migrated at the next server start (" + why + ")");
     }
 
     public static Diagnosis info(String module, String location, String note) {

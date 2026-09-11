@@ -1,7 +1,7 @@
 # GravesX (legoman99573/GravesX, fork of Ranull's Graves). Schema confirmed against DataManager.java:
 # table <prefix>grave (prefix default empty) with owner_uuid/killer_uuid VARCHAR bound u.toString() ->
 # dashed. The plugin's DEFAULT backend is H2 2.4.240 (runtime-fetched via Libby, Graves.java) — pinned
-# below; the engine fetches that exact driver, sniffs the store header and refuses a mismatched file.
+# below. Verified on a live 4.9.8.3 install: the bundled jar is 2.3.232, and it must be the driver.
 # MySQL/MariaDB and the legacy pre-H2 SQLite file are the commented alternatives. grave.uuid is the
 # grave's own id and the entity/block/hologram tables hold grave/world-entity uuids — excluded (grave
 # entities in the world are the world module's territory). killer_uuid may hold a mob uuid: the
@@ -14,7 +14,13 @@ enabled: true
 database:
   type: h2
   database: plugins/GravesX/data/graves.data
-  h2-version: "2.4.240"
+  h2-version: "2.3.232"
+  # GravesX shades H2 under com.ranull.graves.libraries.h2, and H2 writes its data-type CLASS NAMES into
+  # the store. A stock driver reads those back as "File corrupted while reading record" — the file is
+  # fine, it simply names classes only GravesX's jar has. So point at the jar GravesX writes on first
+  # start; the trailing * absorbs the build hash in its name.
+  driver-jar: "plugins/GravesX/lib/com/h2database/h2/2.3.232/h2-2.3.232.jar-relocated-*"
+  driver-class: com.ranull.graves.libraries.h2.Driver
   username: sa
   password: ""
 # database:

@@ -1,0 +1,10 @@
+# BetterHud (toxicity188/BetterHud) flat-file player storage: plugins/BetterHud/.users/<uuid>.yml, one
+# file per player holding their popups/huds/compasses/locations. The uuid is the file NAME only — the
+# contents carry none — so the migration is a rename and nothing else. Note the leading dot: the folder
+# is hidden. Run with the server stopped; the plugin writes a player's file back on quit.
+name: betterhud
+platform: SPIGOT
+type: file
+directory: plugins/BetterHud/.users
+extension: yml
+enabled: true

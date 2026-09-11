@@ -1,0 +1,10 @@
+# JumpPads. Pads are keyed by their location in plugins/JumpPads/jumppads.yml; each carries an
+# `owners:` list of dashed uuids — who may edit or break the pad. The content module swaps the
+# migrating player's uuid wherever it appears in that file. Run with the server stopped: the plugin
+# rewrites the whole file when a pad changes.
+name: jumppads
+platform: SPIGOT
+type: content
+enabled: true
+targets:
+  - directory: plugins/JumpPads/jumppads.yml

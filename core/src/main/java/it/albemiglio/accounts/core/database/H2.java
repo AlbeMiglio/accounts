@@ -52,6 +52,8 @@ public class H2 extends DB {
     /** Set when the owning plugin shades H2: its own jar and driver class, instead of a stock download. */
     private final String driverJar;
     private final String driverClass;
+    /** Extra JDBC settings the owning plugin opens with; without them its own schema can be unreadable. */
+    private final String urlOptions;
 
     private URLClassLoader driverLoader;
     private Driver driver;
@@ -62,8 +64,13 @@ public class H2 extends DB {
 
     public H2(String host, int port, String username, String password, String database, String h2Version,
               String driverJar, String driverClass) {
+        this(host, port, username, password, database, h2Version, driverJar, driverClass, "");
+    }
+
+    public H2(String host, int port, String username, String password, String database, String h2Version,
+              String driverJar, String driverClass, String urlOptions) {
         this(host, port, username, password, database, h2Version,
-                Paths.get("plugins", "Accounts", "h2-drivers"), driverJar, driverClass);
+                Paths.get("plugins", "Accounts", "h2-drivers"), driverJar, driverClass, urlOptions);
     }
 
     H2(String host, int port, String username, String password, String database, String h2Version,
@@ -73,19 +80,29 @@ public class H2 extends DB {
 
     H2(String host, int port, String username, String password, String database, String h2Version,
        Path driverCacheDir, String driverJar, String driverClass) {
+        this(host, port, username, password, database, h2Version, driverCacheDir, driverJar, driverClass, "");
+    }
+
+    H2(String host, int port, String username, String password, String database, String h2Version,
+       Path driverCacheDir, String driverJar, String driverClass, String urlOptions) {
         super(host, port, username, password, database);
         this.type = DBType.H2;
         this.h2Version = h2Version;
         this.driverCacheDir = driverCacheDir;
         this.driverJar = driverJar;
         this.driverClass = driverClass == null || driverClass.trim().isEmpty() ? "org.h2.Driver" : driverClass;
+        this.urlOptions = urlOptions == null ? "" : urlOptions.trim();
     }
 
     @Override
     public String jdbcUrl() {
         // The configured path carries no .mv.db suffix (H2 appends it); absolute so the working
         // directory of whatever launched the migration can't change which file gets opened.
-        return "jdbc:h2:file:" + Paths.get(getDatabase()).toAbsolutePath() + ";IFEXISTS=TRUE";
+        // url-options carries whatever the owning plugin opens with — MobPuppets writes its tables into
+        // a lower-case "public" schema that only DATABASE_TO_LOWER=TRUE can resolve, and a database is
+        // only readable on the terms it was written under.
+        String options = urlOptions.isEmpty() || urlOptions.startsWith(";") ? urlOptions : ";" + urlOptions;
+        return "jdbc:h2:file:" + Paths.get(getDatabase()).toAbsolutePath() + ";IFEXISTS=TRUE" + options;
     }
 
     /** Informational only here: the driver is loaded from the version-pinned jar, never via Hikari. */

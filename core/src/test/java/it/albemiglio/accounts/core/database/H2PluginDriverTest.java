@@ -56,6 +56,26 @@ class H2PluginDriverTest {
     }
 
     @Test
+    void urlOptionsReachTheDatabase(@TempDir Path dir) throws Exception {
+        // MobPuppets writes its tables into a lower-case "public" schema; without the setting it was
+        // created under, replaying that DDL fails with Schema "public" not found.
+        String base = dir.resolve("puppets").toString();
+        try (Connection c = DriverManager.getConnection(
+                "jdbc:h2:file:" + base + ";DATABASE_TO_LOWER=TRUE", "sa", "");
+             Statement st = c.createStatement()) {
+            st.execute("CREATE TABLE \"public\".\"pp_pedine\" (\"owner_uuid\" VARCHAR(36))");
+        }
+        H2 h2 = new H2("", 0, "sa", "", base, "2.4.240", "", "", "DATABASE_TO_LOWER=TRUE");
+
+        try (Connection c = h2.getConnection();
+             Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM \"public\".\"pp_pedine\"")) {
+            rs.next();
+            assertEquals(0, rs.getInt(1));
+        }
+    }
+
+    @Test
     void aMissingPluginJarSaysWhoWritesIt(@TempDir Path dir) {
         H2 h2 = new H2("", 0, "sa", "", dir.resolve("db").toString(), "2.4.240",
                 dir.resolve("lib").resolve("h2.jar-relocated-*").toString(), "org.h2.Driver");

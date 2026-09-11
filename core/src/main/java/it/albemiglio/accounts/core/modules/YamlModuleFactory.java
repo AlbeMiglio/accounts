@@ -145,7 +145,8 @@ public class YamlModuleFactory {
                         password == null ? "" : password,
                         database, h2Version,
                         (String) config.get("driver-jar"),
-                        (String) config.get("driver-class"));
+                        (String) config.get("driver-class"),
+                        (String) config.getOrDefault("url-options", ""));
             default:
                 throw new IllegalArgumentException("Unsupported database type: " + type);
         }

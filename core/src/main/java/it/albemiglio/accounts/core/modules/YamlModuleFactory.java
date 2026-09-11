@@ -86,6 +86,7 @@ public class YamlModuleFactory {
                 nameReplacers.add(new NameReplacer(
                         (String) rename.get("table"),
                         (String) rename.getOrDefault("match", "username"),
+                        (String) rename.getOrDefault("prefix", ""),
                         strings(rename.get("set-lower")),
                         strings(rename.get("set-exact")),
                         strings(rename.get("set-uuid"))));

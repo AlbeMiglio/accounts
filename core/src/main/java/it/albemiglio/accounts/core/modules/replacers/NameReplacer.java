@@ -19,19 +19,30 @@ import java.util.Locale;
  * <p>AuthMe is the shape this was written for: the key is {@code username} in lower case, the display
  * form lives in {@code realname}, and {@code premiumUUID} holds the Mojang identity. Updating only the
  * key would leave the player greeted by their old name.
+ *
+ * <p>A {@code prefix} covers the stores that tag the name with what kind of thing it is — TicketManager
+ * files an assignee as {@code PLAYER.<username>} alongside {@code CONSOLE} and {@code GROUP.<name>} in
+ * the same column — so the prefix is part of the stored value on both sides of the statement.
  */
 public final class NameReplacer {
 
     private final String table;
     private final String matchColumn;
+    private final String prefix;
     private final List<String> lowercaseColumns;
     private final List<String> exactColumns;
     private final List<String> uuidColumns;
 
     public NameReplacer(String table, String matchColumn, List<String> lowercaseColumns,
                         List<String> exactColumns, List<String> uuidColumns) {
+        this(table, matchColumn, "", lowercaseColumns, exactColumns, uuidColumns);
+    }
+
+    public NameReplacer(String table, String matchColumn, String prefix, List<String> lowercaseColumns,
+                        List<String> exactColumns, List<String> uuidColumns) {
         this.table = table;
         this.matchColumn = matchColumn;
+        this.prefix = prefix == null ? "" : prefix;
         this.lowercaseColumns = new ArrayList<>(lowercaseColumns);
         this.exactColumns = new ArrayList<>(exactColumns);
         this.uuidColumns = new ArrayList<>(uuidColumns);
@@ -60,17 +71,22 @@ public final class NameReplacer {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int index = 1;
             for (int i = 0; i < lowercaseColumns.size(); i++) {
-                statement.setString(index++, rename.newName().toLowerCase(Locale.ROOT));
+                statement.setString(index++, prefix + rename.newName().toLowerCase(Locale.ROOT));
             }
             for (int i = 0; i < exactColumns.size(); i++) {
-                statement.setString(index++, rename.newName());
+                statement.setString(index++, prefix + rename.newName());
             }
             for (int i = 0; i < uuidColumns.size(); i++) {
                 statement.setString(index++, rename.uuid().toString());
             }
-            statement.setString(index, rename.oldName().toLowerCase(Locale.ROOT));
+            statement.setString(index, stored(rename.oldName()));
             return statement.executeUpdate();
         }
+    }
+
+    /** What LOWER(column) holds for this player: the whole stored value, prefix included. */
+    private String stored(String name) {
+        return (prefix + name).toLowerCase(Locale.ROOT);
     }
 
     /** Read-only: is this player's row where the module says it is, under the name it expects? */
@@ -78,7 +94,7 @@ public final class NameReplacer {
         List<Diagnosis> report = new ArrayList<>();
         String sql = "SELECT COUNT(*) FROM " + table + " WHERE LOWER(" + matchColumn + ") = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, name.toLowerCase(Locale.ROOT));
+            statement.setString(1, stored(name));
             try (ResultSet rs = statement.executeQuery()) {
                 boolean found = rs.next() && rs.getInt(1) > 0;
                 report.add(found

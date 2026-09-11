@@ -10,8 +10,9 @@
 # _ACTIONS); the player uuid is stored as the string "USER." + dashed uuid (Creator.asString():
 # "$CREATOR_USER.$uuid") in BOTH creator columns -> prefix "USER." + dashed. Console/invalid/dummy
 # creators are the sentinels CONSOLE / INVALID_UUID / DUMMY and correctly do NOT match the prefix.
-# ASSIGNED_TO is DELIBERATELY NOT migrated: Assignment.asString() stores PLAYER.<username> / CONSOLE /
-# NOBODY / GROUP.<name> / PHRASE.<text> — a username, never a uuid. Run with the server STOPPED (H2
+# ASSIGNED_TO holds no uuid: Assignment.asString() stores PLAYER.<username> / CONSOLE / NOBODY /
+# GROUP.<name> / PHRASE.<text>. It follows the player through a name change instead, via renames below
+# — the PLAYER. prefix keeps a GROUP of the same name out of it. Run with the server STOPPED (H2
 # wants exclusive access; TicketManager keeps tickets cached in RAM).
 name: ticketmanager
 platform: SPIGOT
@@ -31,3 +32,8 @@ replacers:
   - table: TICKETMANAGER_V10_ACTIONS
     column: CREATOR
     prefix: "USER."
+renames:
+  - table: TICKETMANAGER_V10_TICKETS
+    match: ASSIGNED_TO
+    prefix: "PLAYER."
+    set-exact: [ASSIGNED_TO]

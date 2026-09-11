@@ -159,12 +159,15 @@ public abstract class Module {
         return false;
     }
 
+    /** The deepest message that actually says something: H2's innermost causes carry none. */
     private static String rootMessage(Throwable error) {
-        Throwable cause = error;
-        while (cause.getCause() != null && cause.getCause() != cause) {
-            cause = cause.getCause();
+        String message = String.valueOf(error.getMessage());
+        for (Throwable cause = error; cause != null && cause.getCause() != cause; cause = cause.getCause()) {
+            if (cause.getMessage() != null && !cause.getMessage().trim().isEmpty()) {
+                message = cause.getMessage();
+            }
         }
-        return String.valueOf(cause.getMessage());
+        return message;
     }
 
     /**

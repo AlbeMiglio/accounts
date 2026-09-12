@@ -23,13 +23,16 @@ import java.util.concurrent.TimeUnit;
 public final class AccountsEngine implements AutoCloseable {
 
     private final BroadcastMigrationService service;
+    private final RedisMigrationTimings timings;
     private final RedisMigrationSubscriber subscriber;
     private final ScheduledExecutorService heartbeat;
     private final JedisPool pool;
 
-    private AccountsEngine(BroadcastMigrationService service, RedisMigrationSubscriber subscriber,
+    private AccountsEngine(BroadcastMigrationService service, RedisMigrationTimings timings,
+                           RedisMigrationSubscriber subscriber,
                            ScheduledExecutorService heartbeat, JedisPool pool) {
         this.service = service;
+        this.timings = timings;
         this.subscriber = subscriber;
         this.heartbeat = heartbeat;
         this.pool = pool;
@@ -43,7 +46,8 @@ public final class AccountsEngine implements AutoCloseable {
         RedisInstanceRegistry registry = new RedisInstanceRegistry(pool, instanceId);
         registry.heartbeat();
 
-        InstanceMigrator migrator = new InstanceMigrator(instanceId, modules, store);
+        RedisMigrationTimings timings = new RedisMigrationTimings(pool);
+        InstanceMigrator migrator = new InstanceMigrator(instanceId, modules, store, timings);
         RedisMigrationPublisher publisher = new RedisMigrationPublisher(pool);
         BroadcastMigrationService service = new BroadcastMigrationService(instanceId, migrator, store, publisher, registry);
 
@@ -58,7 +62,7 @@ public final class AccountsEngine implements AutoCloseable {
         });
         heartbeat.scheduleAtFixedRate(registry::heartbeat, 10, 10, TimeUnit.SECONDS);
 
-        return new AccountsEngine(service, subscriber, heartbeat, pool);
+        return new AccountsEngine(service, timings, subscriber, heartbeat, pool);
     }
 
     /**
@@ -104,6 +108,11 @@ public final class AccountsEngine implements AutoCloseable {
     }
 
     /** Where a migration has got to: who still owes it, who has applied it. */
+    /** How long transfers have been taking, and which modules and instances are the slow ones. */
+    public RedisMigrationTimings.Snapshot timings() {
+        return timings.snapshot();
+    }
+
     public MigrationStatus status(UUID from, UUID to) {
         return service.status(from, to);
     }

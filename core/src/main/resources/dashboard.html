@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>accounts — migrations</title>
+<title>accounts</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root {
@@ -119,15 +119,92 @@
     .clock { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  /* ---- tabs, and the numbers behind the transfers ------------------------ */
+  nav { display: flex; gap: .3rem; margin: 1.4rem 0 0; }
+  nav button { font: inherit; font-size: .82rem; color: var(--muted); background: none; cursor: pointer;
+               border: 1px solid transparent; border-radius: 999px; padding: .32rem .85rem;
+               transition: color .16s ease, background .16s ease, border-color .16s ease; }
+  nav button:hover { color: var(--fg); }
+  nav button[aria-selected="true"] { color: var(--fg); background: var(--panel);
+                                     border-color: var(--line); box-shadow: var(--shadow); }
+  nav button:focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
+  section[hidden] { display: none; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+           gap: .8rem; margin-top: 1.6rem; }
+  .card { border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+          box-shadow: var(--shadow); padding: 1rem 1.1rem; }
+  .card .big { font-family: var(--mono); font-size: 1.65rem; letter-spacing: -.02em; margin-top: .35rem; }
+  .card .sub { font-size: .78rem; color: var(--dim); margin-top: .1rem; }
+
+  .panel { border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+           box-shadow: var(--shadow); margin-top: 1.4rem; overflow: hidden; }
+  .panel > h2 { margin: 0; padding: .95rem 1.15rem; font-size: .9rem; font-weight: 600;
+                border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: .6rem; }
+  .panel > h2 small { font-weight: 400; color: var(--dim); font-size: .76rem; }
+  .bars { padding: .8rem 1.15rem 1.1rem; display: flex; flex-direction: column; gap: .5rem; }
+  .bar { display: grid; grid-template-columns: minmax(8rem, 15rem) 1fr auto; align-items: center;
+         gap: .75rem; font-size: .82rem; }
+  .bar .name { font-family: var(--mono); font-size: .76rem; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  /* Both are spans: without display:block an inline element ignores width and height, and every bar
+     comes out the same length — which is the one thing this panel exists not to do. */
+  .bar .track { display: block; height: 7px; border-radius: 999px; background: var(--panel-2);
+                border: 1px solid var(--line); overflow: hidden; }
+  .bar .fill { display: block; height: 100%; background: var(--go); border-radius: 999px;
+               transition: width .5s cubic-bezier(.2,.7,.3,1); }
+  .bar.slow .fill { background: var(--wait); }
+  .bar.worst .fill { background: var(--late); }
+  .bar .ms { font-family: var(--mono); font-size: .76rem; color: var(--muted);
+             min-width: 5.5rem; text-align: right; }
+  table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  th, td { text-align: left; padding: .55rem 1.15rem; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+       color: var(--muted); font-weight: 400; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num { font-family: var(--mono); text-align: right; }
+  .warn { color: var(--late); }
 </style>
 <main>
   <header>
-    <h1>Transfers</h1>
+    <h1>accounts</h1>
     <span class="spacer"></span>
     <span class="stat"><span class="pulse" id="pulse"></span><span id="state">connecting</span></span>
     <span class="stat" id="done-count"></span>
   </header>
-  <div id="list"></div>
+  <nav role="tablist">
+    <button role="tab" id="tab-transfers" aria-selected="true" aria-controls="view-transfers">Transfers</button>
+    <button role="tab" id="tab-analytics" aria-selected="false" aria-controls="view-analytics">Analytics</button>
+  </nav>
+
+  <section id="view-transfers" role="tabpanel" aria-labelledby="tab-transfers">
+    <div id="list"></div>
+  </section>
+
+  <section id="view-analytics" role="tabpanel" aria-labelledby="tab-analytics" hidden>
+    <div class="cards">
+      <div class="card"><span class="label">transfers</span><div class="big" id="a-count">—</div>
+        <div class="sub">applied across every server</div></div>
+      <div class="card"><span class="label">typical</span><div class="big" id="a-median">—</div>
+        <div class="sub">median server, one transfer</div></div>
+      <div class="card"><span class="label">slowest run</span><div class="big" id="a-max">—</div>
+        <div class="sub" id="a-max-where">—</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Where the time goes <small>average per module, slowest first</small></h2>
+      <div class="bars" id="a-modules"></div>
+    </div>
+
+    <div class="panel">
+      <h2>By server <small>a transfer is applied by every server at once, so the slowest one sets the pace</small></h2>
+      <table>
+        <thead><tr><th>server</th><th class="num">transfers</th><th class="num">average</th><th class="num">slowest</th></tr></thead>
+        <tbody id="a-instances"></tbody>
+      </table>
+    </div>
+  </section>
 </main>
 <script>
   const token = new URLSearchParams(location.search).get('token') || '';
@@ -279,6 +356,73 @@
       pulseEl.classList.add('off');
       stateEl.innerHTML = '<span class="err">' + esc(e.message) + '</span>';
     }
+  }
+
+  /* ---- tabs -------------------------------------------------------------- */
+  const tabs = [['tab-transfers', 'view-transfers'], ['tab-analytics', 'view-analytics']];
+  for (const [tabId, viewId] of tabs) {
+    document.getElementById(tabId).addEventListener('click', () => {
+      for (const [t, v] of tabs) {
+        const on = t === tabId;
+        document.getElementById(t).setAttribute('aria-selected', String(on));
+        document.getElementById(v).hidden = !on;
+      }
+      if (viewId === 'view-analytics') loadAnalytics();
+    });
+  }
+
+  /* ---- analytics --------------------------------------------------------- */
+  const ms = v => v < 1000 ? Math.round(v) + ' ms'
+                : v < 60000 ? (v / 1000).toFixed(1) + ' s'
+                : Math.floor(v / 60000) + 'm ' + String(Math.round((v % 60000) / 1000)).padStart(2, '0') + 's';
+
+  function median(values) {
+    if (!values.length) return 0;
+    const s = [...values].sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)];
+  }
+
+  async function loadAnalytics() {
+    let data;
+    try {
+      const r = await fetch('api/analytics?token=' + encodeURIComponent(token), {cache: 'no-store'});
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      data = await r.json();
+    } catch (e) {
+      document.getElementById('a-modules').innerHTML =
+        '<span class="label err">' + esc(e.message) + '</span>';
+      return;
+    }
+    const instances = (data.instances || []).sort((a, b) => b.average - a.average);
+    const modules = (data.modules || []).sort((a, b) => b.average - a.average);
+
+    /* One transfer is applied by every server, so summing the per-server counts would report a single
+       player four times. Count the transfers themselves; fall back to the busiest server when the
+       recent list has already rolled past them. */
+    const distinct = new Set((data.recent || []).map(r => r.migration)).size;
+    const transfers = distinct || instances.reduce((n, i) => Math.max(n, i.runs), 0);
+    document.getElementById('a-count').textContent = transfers || '—';
+    document.getElementById('a-median').textContent =
+      instances.length ? ms(median(instances.map(i => i.average))) : '—';
+    const worst = instances.reduce((w, i) => (!w || i.max > w.max ? i : w), null);
+    document.getElementById('a-max').textContent = worst ? ms(worst.max) : '—';
+    document.getElementById('a-max-where').textContent = worst ? worst.name : 'nothing recorded yet';
+
+    const top = modules.slice(0, 12);
+    const peak = top.length ? top[0].average : 1;
+    document.getElementById('a-modules').innerHTML = top.length ? top.map((m, i) => {
+      const width = Math.max(1, Math.round(100 * m.average / (peak || 1)));
+      const cls = i === 0 ? 'worst' : (m.average > peak / 3 ? 'slow' : '');
+      const fails = m.failures ? ' <span class="warn">· ' + m.failures + ' failed</span>' : '';
+      return '<div class="bar ' + cls + '"><span class="name" title="' + esc(m.name) + '">' + esc(m.name) +
+        '</span><span class="track"><span class="fill" style="width:' + width + '%"></span></span>' +
+        '<span class="ms">' + ms(m.average) + fails + '</span></div>';
+    }).join('') : '<span class="label">no transfer has been measured yet</span>';
+
+    document.getElementById('a-instances').innerHTML = instances.length ? instances.map(i =>
+      '<tr><td>' + esc(i.name) + '</td><td class="num">' + i.runs + '</td><td class="num">' +
+      ms(i.average) + '</td><td class="num">' + ms(i.max) + '</td></tr>').join('')
+      : '<tr><td colspan="4"><span class="label">no transfer has been measured yet</span></td></tr>';
   }
 
   if (window.matchMedia('(prefers-color-scheme: light)').matches) {

@@ -18,3 +18,8 @@ dashboard:
   bind: 127.0.0.1
   port: 8081
   token: ""
+  # What /accounts dashboard puts in the link. The bind address is where the panel listens; this is
+  # where an operator reaches it, which on a loopback bind is the far end of their tunnel and not this
+  # address at all. The link carries its own token, minted per request and good for 30 minutes, so the
+  # token above never has to travel through chat and into the console log.
+  link-base: ""

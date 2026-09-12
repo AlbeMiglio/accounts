@@ -40,6 +40,7 @@ public class AccountsPlugin implements MigrationService {
 
     private AccountsEngine engine;
     private MigrationDashboard dashboard;
+    private String dashboardLink;
 
     @Inject
     public AccountsPlugin(ProxyServer proxy, Logger logger, @DataDirectory Path dataDirectory) {
@@ -73,18 +74,36 @@ public class AccountsPlugin implements MigrationService {
                 String bind = (String) dashboardConfig.getOrDefault("bind", "127.0.0.1");
                 int dashboardPort = ((Number) dashboardConfig.getOrDefault("port", 8081)).intValue();
                 this.dashboard = MigrationDashboard.start(bind, dashboardPort,
-                        (String) dashboardConfig.getOrDefault("token", ""), engine::inFlight);
+                        (String) dashboardConfig.getOrDefault("token", ""), engine::inFlight, engine::timings);
+                // The bind address is where it listens; the link is where an operator reaches it, which
+                // on a loopback bind is the far end of their tunnel and not this address at all.
+                String linkBase = (String) dashboardConfig.getOrDefault("link-base", "");
+                this.dashboardLink = linkBase == null || linkBase.trim().isEmpty()
+                        ? "http://" + bind + ":" + this.dashboard.port()
+                        : linkBase.trim().replaceAll("/+$", "");
                 logger.info("Migration dashboard on http://{}:{} (token required)", bind, this.dashboard.port());
             }
 
             CommandManager commands = proxy.getCommandManager();
             CommandMeta meta = commands.metaBuilder("accounts").build();
-            commands.register(meta, new MigrateCommand(engine, moduleService.getModules()));
+            commands.register(meta, new MigrateCommand(engine, moduleService.getModules(),
+                    this::dashboardLink));
 
             logger.info("Accounts ready: {} module(s) loaded", moduleService.getModules().size());
         } catch (Exception e) {
             logger.error("Accounts failed to start", e);
         }
+    }
+
+    /**
+     * A link an operator can click, carrying a token that expires on its own. Null when the dashboard
+     * is off — the command says so rather than handing out a URL that answers nothing.
+     */
+    private String dashboardLink() {
+        if (dashboard == null) {
+            return null;
+        }
+        return dashboardLink + "/?token=" + dashboard.mintLink(30);
     }
 
     @Subscribe

@@ -6,13 +6,18 @@ import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import it.albemiglio.accounts.api.MigrationStatus;
+import it.albemiglio.accounts.core.services.RedisMigrationTimings;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
@@ -29,7 +34,11 @@ public final class MigrationDashboard implements AutoCloseable {
 
     private static final Gson GSON = new Gson();
 
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     private final HttpServer server;
+    /** Temporary link tokens handed out by the command, each with the instant it stops working. */
+    private final Map<String, Long> links = new ConcurrentHashMap<>();
 
     private MigrationDashboard(HttpServer server) {
         this.server = server;
@@ -43,19 +52,46 @@ public final class MigrationDashboard implements AutoCloseable {
      */
     public static MigrationDashboard start(String bind, int port, String token,
                                            Supplier<List<MigrationStatus>> inFlight) throws IOException {
+        return start(bind, port, token, inFlight, RedisMigrationTimings.Snapshot::new);
+    }
+
+    /**
+     * @param timings supplies the recorded durations; called per request, never cached
+     */
+    public static MigrationDashboard start(String bind, int port, String token,
+                                           Supplier<List<MigrationStatus>> inFlight,
+                                           Supplier<RedisMigrationTimings.Snapshot> timings)
+            throws IOException {
         if (token == null || token.trim().isEmpty()) {
             throw new IllegalArgumentException("dashboard token is empty: refusing to expose migration data "
                     + "without one. Set dashboard.token in the config, or leave dashboard.enabled false.");
         }
         HttpServer server = HttpServer.create(new InetSocketAddress(bind, port), 0);
         byte[] page = readPage();
+        MigrationDashboard dashboard = new MigrationDashboard(server);
         server.createContext("/api/migrations", exchange ->
-                guarded(exchange, token, () -> respond(exchange, 200, "application/json", json(inFlight.get()))));
+                dashboard.guarded(exchange, token, () -> respond(exchange, 200, "application/json", json(inFlight.get()))));
+        server.createContext("/api/analytics", exchange ->
+                dashboard.guarded(exchange, token, () ->
+                        respond(exchange, 200, "application/json", analytics(timings.get()))));
         server.createContext("/", exchange ->
-                guarded(exchange, token, () -> respond(exchange, 200, "text/html; charset=utf-8", page)));
+                dashboard.guarded(exchange, token, () -> respond(exchange, 200, "text/html; charset=utf-8", page)));
         server.setExecutor(null);
         server.start();
-        return new MigrationDashboard(server);
+        return dashboard;
+    }
+
+    /**
+     * A single-use-ish link token, valid for {@code minutes}. The configured token is the operator's
+     * standing secret and does not belong in a chat message that lands in a log everyone reads; a
+     * command hands out one of these instead, and it expires on its own.
+     */
+    public String mintLink(int minutes) {
+        byte[] bytes = new byte[18];
+        RANDOM.nextBytes(bytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        links.put(token, System.currentTimeMillis() + minutes * 60_000L);
+        return token;
     }
 
     public int port() {
@@ -68,13 +104,13 @@ public final class MigrationDashboard implements AutoCloseable {
     }
 
     /** Token from the Authorization header or the query string; anything else gets 401 and no detail. */
-    private static void guarded(HttpExchange exchange, String token, IoRunnable body) throws IOException {
+    private void guarded(HttpExchange exchange, String token, IoRunnable body) throws IOException {
         try {
             if (!"GET".equals(exchange.getRequestMethod())) {
                 respond(exchange, 405, "text/plain", "GET only".getBytes(StandardCharsets.UTF_8));
                 return;
             }
-            if (!authorised(exchange, token)) {
+            if (!authorised(exchange, token) && !linked(exchange)) {
                 respond(exchange, 401, "text/plain", "unauthorised".getBytes(StandardCharsets.UTF_8));
                 return;
             }
@@ -84,11 +120,33 @@ public final class MigrationDashboard implements AutoCloseable {
         }
     }
 
-    private static boolean authorised(HttpExchange exchange, String token) {
+    /** A temporary link token, still inside its window. Expired ones are dropped as they are met. */
+    private boolean linked(HttpExchange exchange) {
+        String presented = presented(exchange);
+        if (presented == null) {
+            return false;
+        }
+        Long until = links.get(presented);
+        if (until == null) {
+            return false;
+        }
+        // >= not >: a link whose window is zero was never valid, and the boundary instant is over.
+        if (System.currentTimeMillis() >= until) {
+            links.remove(presented);
+            return false;
+        }
+        return true;
+    }
+
+    private static String presented(HttpExchange exchange) {
         String header = exchange.getRequestHeaders().getFirst("Authorization");
-        String presented = header != null && header.startsWith("Bearer ")
+        return header != null && header.startsWith("Bearer ")
                 ? header.substring("Bearer ".length())
                 : queryParam(exchange.getRequestURI().getRawQuery());
+    }
+
+    private static boolean authorised(HttpExchange exchange, String token) {
+        String presented = presented(exchange);
         if (presented == null) {
             return false;
         }
@@ -126,6 +184,57 @@ public final class MigrationDashboard implements AutoCloseable {
         JsonObject root = new JsonObject();
         root.add("inFlight", array);
         return GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** The recorded durations, shaped for the analytics view: per module, per instance, recent runs. */
+    static byte[] analytics(RedisMigrationTimings.Snapshot snapshot) {
+        JsonObject root = new JsonObject();
+        root.add("modules", counters(snapshot.modules));
+        root.add("instances", counters(snapshot.instances));
+        JsonArray recent = new JsonArray();
+        for (String line : snapshot.recent) {
+            String[] parts = line.split("\t");
+            if (parts.length < 5) {
+                continue;
+            }
+            JsonObject run = new JsonObject();
+            run.addProperty("migration", parts[0]);
+            run.addProperty("instance", parts[1]);
+            run.addProperty("millis", Long.parseLong(parts[2]));
+            run.addProperty("modules", Integer.parseInt(parts[3]));
+            run.addProperty("at", Long.parseLong(parts[4]));
+            recent.add(run);
+        }
+        root.add("recent", recent);
+        return GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static JsonArray counters(java.util.Map<String, java.util.Map<String, String>> source) {
+        JsonArray array = new JsonArray();
+        source.forEach((name, fields) -> {
+            long runs = number(fields.get("runs"));
+            if (runs == 0) {
+                return;
+            }
+            long millis = number(fields.get("millis"));
+            JsonObject entry = new JsonObject();
+            entry.addProperty("name", name);
+            entry.addProperty("runs", runs);
+            entry.addProperty("millis", millis);
+            entry.addProperty("average", millis / runs);
+            entry.addProperty("max", number(fields.get("max")));
+            entry.addProperty("failures", number(fields.get("failures")));
+            array.add(entry);
+        });
+        return array;
+    }
+
+    private static long number(String value) {
+        try {
+            return value == null ? 0L : Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     private static byte[] readPage() throws IOException {

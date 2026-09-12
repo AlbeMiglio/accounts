@@ -1,0 +1,11 @@
+# CMI's local save files, the ones that stay on disk even when user data is in MySQL (see cmi.yml):
+# Saves/SkinsCache.yml is keyed by uuid, and Saves/Warps.yml records the uuid of whoever set each warp.
+# Pair with cmi.yml rather than replacing it — that one carries the users table. Run with the server
+# stopped; CMI rewrites these from memory.
+name: cmi-saves
+platform: SPIGOT
+type: content
+enabled: true
+targets:
+  - directory: plugins/CMI/Saves
+    pattern: "*.yml"

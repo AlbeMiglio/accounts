@@ -1,11 +1,6 @@
-# ItemsAdder (LoneDev, closed-source) — custom player stats with player_stats.save_type: CUSTOM_NBT.
-# Official docs confirm the location (itemsadder.devs.beer/other/custom-player-stats: "a custom NBT
-# file handled by ItemsAdder" under storage/players/stats/); the filename scheme and content were
-# verified on a live install: one <dashed-uuid>.nbt per player, and the uuid does NOT appear inside
-# the NBT (content is stat identifiers/values only) -> a pure rename is safe. With save_type:
-# PLAYER_DAT the stats live in vanilla player.dat instead — covered by the world module, skip this one.
-# Emote-unlock persistence is not documented by ItemsAdder (typically permission-side, i.e. LuckPerms).
-# Run with the server stopped.
+# ItemsAdder per-player stats: plugins/ItemsAdder/storage/players/stats/<uuid>.nbt, one file per player
+# named by their uuid. The uuid is the file name; the NBT payload holds the stats, not the identity, so
+# the migration is a rename. Run with the server stopped — the file is written back on quit.
 name: itemsadder-stats
 platform: SPIGOT
 type: file

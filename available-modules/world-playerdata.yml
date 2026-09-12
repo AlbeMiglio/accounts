@@ -1,0 +1,16 @@
+# The player's own vanilla file: <world>/playerdata/<uuid>.dat — inventory, ender chest, position,
+# health, xp, the lot. Minecraft names it by uuid, so this is a rename and the contents are left to
+# world.yml, which rewrites what is INSIDE the .dat but never moves it. Without this module a migrated
+# player logs in as a stranger: empty inventory, spawn position, level 0.
+#
+# Copy once per world folder, with a unique name each (the directory is the server-root-relative path,
+# so `world`, `world_nether`, or whatever the server actually calls it — check level-name in
+# server.properties and any Multiverse worlds, they are frequently NOT called "world").
+# Pair with world-playerdata-old.yml (Minecraft keeps a .dat_old beside each file), world-stats.yml and
+# world-advancements.yml. Run with the server stopped.
+name: world-playerdata
+platform: SPIGOT
+type: file
+directory: world/playerdata
+extension: dat
+enabled: true

@@ -1,6 +1,15 @@
 # Vanilla world data: tamed pets, player-heads, boss-bar viewers, anything in the world that points at
 # a player by UUID. One module per world folder (world, world_nether, world_the_end). Copy this file
 # into plugins/Accounts/modules/ to enable it on a backend.
+#
+# This rewrites what is INSIDE the region and .dat files; it does NOT move the player's own files,
+# which are named by uuid — pair it with world-playerdata.yml, world-playerdata-old.yml,
+# world-stats.yml and world-advancements.yml or the migrated player keeps none of their inventory.
+#
+# Check the directory: `world` is the vanilla default, not the common case. server.properties
+# level-name and any Multiverse worlds decide it, and scanning a folder that is not there is silent.
+# Scanning region files is the expensive part of a migration — this is the module to be selective
+# about on a server with many gigabytes of worlds.
 name: world
 platform: SPIGOT
 type: world

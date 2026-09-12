@@ -1,0 +1,9 @@
+# Vanilla advancements: <world>/advancements/<uuid>.json, one file per player, named by uuid. Lose it
+# and the player starts the advancement tree again. Copy once per world that has an advancements
+# folder. Run with the server stopped.
+name: world-advancements
+platform: SPIGOT
+type: file
+directory: world/advancements
+extension: json
+enabled: true

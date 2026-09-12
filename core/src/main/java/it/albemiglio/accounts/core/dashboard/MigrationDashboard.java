@@ -17,7 +17,9 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 import java.util.function.Supplier;
 
 /**
@@ -33,6 +35,7 @@ import java.util.function.Supplier;
 public final class MigrationDashboard implements AutoCloseable {
 
     private static final Gson GSON = new Gson();
+    private static final Logger LOG = Logger.getLogger(MigrationDashboard.class.getName());
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -62,6 +65,18 @@ public final class MigrationDashboard implements AutoCloseable {
                                            Supplier<List<MigrationStatus>> inFlight,
                                            Supplier<RedisMigrationTimings.Snapshot> timings)
             throws IOException {
+        return start(bind, port, token, inFlight, timings, DashboardActions.NONE);
+    }
+
+    /**
+     * @param actions what the panel may do as well as show — {@link DashboardActions#NONE} unless the
+     *                operator turned actions on, because with them a leaked token moves player data
+     */
+    public static MigrationDashboard start(String bind, int port, String token,
+                                           Supplier<List<MigrationStatus>> inFlight,
+                                           Supplier<RedisMigrationTimings.Snapshot> timings,
+                                           DashboardActions actions)
+            throws IOException {
         if (token == null || token.trim().isEmpty()) {
             throw new IllegalArgumentException("dashboard token is empty: refusing to expose migration data "
                     + "without one. Set dashboard.token in the config, or leave dashboard.enabled false.");
@@ -74,6 +89,29 @@ public final class MigrationDashboard implements AutoCloseable {
         server.createContext("/api/analytics", exchange ->
                 dashboard.guarded(exchange, token, () ->
                         respond(exchange, 200, "application/json", analytics(timings.get()))));
+        server.createContext("/api/resolve", exchange -> dashboard.guarded(exchange, token, () ->
+                respond(exchange, 200, "application/json", resolved(
+                        param(exchange.getRequestURI().getRawQuery(), "name"), actions))));
+        server.createContext("/api/actions/migrate", exchange ->
+                dashboard.action(exchange, token, actions, form -> {
+                    UUID from = UUID.fromString(form.get("from"));
+                    UUID to = UUID.fromString(form.get("to"));
+                    if (from.equals(to)) {
+                        throw new IllegalArgumentException("from and to are the same identity");
+                    }
+                    actions.migrate(from, to, form.getOrDefault("username", ""));
+                    return "transfer " + from + " -> " + to + " broadcast";
+                }));
+        server.createContext("/api/actions/rename", exchange ->
+                dashboard.action(exchange, token, actions, form -> {
+                    String oldName = form.getOrDefault("old", "");
+                    String newName = form.getOrDefault("new", "");
+                    if (oldName.trim().isEmpty() || newName.trim().isEmpty()) {
+                        throw new IllegalArgumentException("both names are required");
+                    }
+                    actions.rename(UUID.fromString(form.get("uuid")), oldName, newName);
+                    return "rename " + oldName + " -> " + newName + " broadcast";
+                }));
         server.createContext("/", exchange ->
                 dashboard.guarded(exchange, token, () -> respond(exchange, 200, "text/html; charset=utf-8", page)));
         server.setExecutor(null);
@@ -154,6 +192,97 @@ public final class MigrationDashboard implements AutoCloseable {
         // who can measure the response.
         return MessageDigest.isEqual(presented.getBytes(StandardCharsets.UTF_8),
                 token.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * A POST that changes something. Separate from {@link #guarded} in every way that matters: it is
+     * the only path that accepts a method other than GET, it refuses outright when actions are off,
+     * and it says who asked — a panel that moves player data should leave a trail in the log.
+     */
+    private void action(HttpExchange exchange, String token, DashboardActions actions,
+                        ActionHandler handler) throws IOException {
+        try {
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                respond(exchange, 405, "text/plain", "POST only".getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+            if (!authorised(exchange, token) && !linked(exchange)) {
+                respond(exchange, 401, "text/plain", "unauthorised".getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+            if (!actions.enabled()) {
+                respond(exchange, 403, "text/plain",
+                        ("This panel is read-only. Set dashboard.actions to true to let it move data.")
+                                .getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+            String body = new String(readAll(exchange.getRequestBody()), StandardCharsets.UTF_8);
+            String outcome;
+            try {
+                outcome = handler.handle(form(body));
+            } catch (IllegalArgumentException | NullPointerException e) {
+                respond(exchange, 400, "text/plain",
+                        String.valueOf(e.getMessage()).getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+            LOG.info("dashboard action from " + exchange.getRemoteAddress() + ": " + outcome);
+            respond(exchange, 200, "text/plain", outcome.getBytes(StandardCharsets.UTF_8));
+        } finally {
+            exchange.close();
+        }
+    }
+
+    private static byte[] readAll(java.io.InputStream in) throws IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int n;
+        while ((n = in.read(buffer)) > 0) {
+            out.write(buffer, 0, n);
+            if (out.size() > 8192) {
+                break;   // nothing this panel posts is large; refuse to buffer more
+            }
+        }
+        return out.toByteArray();
+    }
+
+    private static Map<String, String> form(String body) {
+        Map<String, String> fields = new java.util.LinkedHashMap<>();
+        for (String pair : body.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0) {
+                fields.put(java.net.URLDecoder.decode(pair.substring(0, eq), StandardCharsets.UTF_8),
+                        java.net.URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8));
+            }
+        }
+        return fields;
+    }
+
+    /** Both halves of a player's identity: the offline one is a hash, the premium one is Mojang's. */
+    static byte[] resolved(String name, DashboardActions actions) {
+        JsonObject root = new JsonObject();
+        root.addProperty("actions", actions.enabled());
+        if (name != null && !name.trim().isEmpty()) {
+            root.addProperty("name", name);
+            root.addProperty("offline", OfflineUuid.of(name).toString());
+            actions.premiumUuid(name).ifPresent(uuid -> root.addProperty("premium", uuid.toString()));
+        }
+        return GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String param(String rawQuery, String name) {
+        if (rawQuery == null) {
+            return null;
+        }
+        for (String pair : rawQuery.split("&")) {
+            if (pair.startsWith(name + "=")) {
+                return java.net.URLDecoder.decode(pair.substring(name.length() + 1), StandardCharsets.UTF_8);
+            }
+        }
+        return null;
+    }
+
+    private interface ActionHandler {
+        String handle(Map<String, String> form);
     }
 
     private static String queryParam(String rawQuery) {

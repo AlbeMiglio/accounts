@@ -23,3 +23,7 @@ dashboard:
   # address at all. The link carries its own token, minted per request and good for 30 minutes, so the
   # token above never has to travel through chat and into the console log.
   link-base: ""
+  # Off: the panel reads and nothing else, which is what makes a leaked token survivable. On, the same
+  # token moves player data — every transfer the panel offers is a real broadcast to every server. Turn
+  # it on only where the panel is reachable by people you would hand the console to.
+  actions: false

@@ -165,6 +165,31 @@
   tbody tr:last-child td { border-bottom: 0; }
   td.num { font-family: var(--mono); text-align: right; }
   .warn { color: var(--late); }
+
+  /* ---- the acting half --------------------------------------------------- */
+  .form { padding: 1.05rem 1.15rem 1.2rem; display: flex; flex-direction: column; gap: .75rem; }
+  .field { display: flex; flex-direction: column; gap: .3rem; }
+  .field input { font: inherit; font-family: var(--mono); font-size: .84rem; color: var(--fg);
+                 background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+                 padding: .5rem .7rem; }
+  .field input:focus-visible { outline: 2px solid var(--go); outline-offset: -1px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .btn { font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; align-self: flex-start;
+         color: var(--bg); background: var(--go); border: 0; border-radius: 999px; padding: .45rem 1.1rem;
+         transition: filter .16s ease; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+  .btn.ghost { background: var(--panel-2); color: var(--fg); border: 1px solid var(--line-2); }
+  .btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .resolved { display: none; gap: .55rem; align-items: center; flex-wrap: wrap;
+              font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+  .resolved.on { display: flex; }
+  .resolved b { color: var(--fg); font-weight: 500; }
+  .outcome { font-family: var(--mono); font-size: .78rem; min-height: 1.2em; }
+  .outcome.ok { color: var(--go); }
+  .outcome.bad { color: var(--late); }
+  .locked { padding: 1.05rem 1.15rem 1.2rem; color: var(--muted); font-size: .88rem; }
+  .locked code { font-family: var(--mono); font-size: .82rem; color: var(--fg); }
 </style>
 <main>
   <header>
@@ -176,6 +201,7 @@
   <nav role="tablist">
     <button role="tab" id="tab-transfers" aria-selected="true" aria-controls="view-transfers">Transfers</button>
     <button role="tab" id="tab-analytics" aria-selected="false" aria-controls="view-analytics">Analytics</button>
+    <button role="tab" id="tab-move" aria-selected="false" aria-controls="view-move">Move an account</button>
   </nav>
 
   <section id="view-transfers" role="tabpanel" aria-labelledby="tab-transfers">
@@ -203,6 +229,53 @@
         <thead><tr><th>server</th><th class="num">transfers</th><th class="num">average</th><th class="num">slowest</th></tr></thead>
         <tbody id="a-instances"></tbody>
       </table>
+    </div>
+  </section>
+
+  <section id="view-move" role="tabpanel" aria-labelledby="tab-move" hidden>
+    <div class="panel" id="move-panel">
+      <h2>Move a player to their premium account <small>the usual one: cracked data follows them to Mojang</small></h2>
+      <div class="form">
+        <div class="field">
+          <label class="label" for="m-name">player name</label>
+          <input id="m-name" autocomplete="off" spellcheck="false" placeholder="Salefre7889">
+        </div>
+        <div class="resolved" id="m-resolved"></div>
+        <button class="btn" id="m-go" disabled>Move this account</button>
+        <div class="outcome" id="m-out"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Move one identity onto another <small>when you already know both — a recovered account, a second transfer</small></h2>
+      <div class="form">
+        <div class="pair">
+          <div class="field"><label class="label" for="p-from">from</label>
+            <input id="p-from" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
+          <div class="field"><label class="label" for="p-to">to</label>
+            <input id="p-to" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
+        </div>
+        <div class="field"><label class="label" for="p-name">name (optional, for the log)</label>
+          <input id="p-name" autocomplete="off" spellcheck="false"></div>
+        <button class="btn ghost" id="p-go">Move it</button>
+        <div class="outcome" id="p-out"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Carry a name change <small>same identity, new name — for every store still keyed by the old one</small></h2>
+      <div class="form">
+        <div class="field"><label class="label" for="r-uuid">identity</label>
+          <input id="r-uuid" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
+        <div class="pair">
+          <div class="field"><label class="label" for="r-old">old name</label>
+            <input id="r-old" autocomplete="off" spellcheck="false"></div>
+          <div class="field"><label class="label" for="r-new">new name</label>
+            <input id="r-new" autocomplete="off" spellcheck="false"></div>
+        </div>
+        <button class="btn ghost" id="r-go">Carry it</button>
+        <div class="outcome" id="r-out"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -359,7 +432,8 @@
   }
 
   /* ---- tabs -------------------------------------------------------------- */
-  const tabs = [['tab-transfers', 'view-transfers'], ['tab-analytics', 'view-analytics']];
+  const tabs = [['tab-transfers', 'view-transfers'], ['tab-analytics', 'view-analytics'],
+                ['tab-move', 'view-move']];
   for (const [tabId, viewId] of tabs) {
     document.getElementById(tabId).addEventListener('click', () => {
       for (const [t, v] of tabs) {
@@ -368,6 +442,7 @@
         document.getElementById(v).hidden = !on;
       }
       if (viewId === 'view-analytics') loadAnalytics();
+      if (viewId === 'view-move') checkActions();
     });
   }
 
@@ -424,6 +499,92 @@
       ms(i.average) + '</td><td class="num">' + ms(i.max) + '</td></tr>').join('')
       : '<tr><td colspan="4"><span class="label">no transfer has been measured yet</span></td></tr>';
   }
+
+  /* ---- moving an account ------------------------------------------------- */
+  const q = id => document.getElementById(id);
+  let actionsOn = null;
+
+  async function resolve(name) {
+    const r = await fetch('api/resolve?token=' + encodeURIComponent(token) +
+                          (name ? '&name=' + encodeURIComponent(name) : ''), {cache: 'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  async function checkActions() {
+    if (actionsOn !== null) return;
+    try { actionsOn = (await resolve('')).actions; } catch (e) { actionsOn = false; }
+    if (actionsOn) return;
+    for (const panel of document.querySelectorAll('#view-move .panel')) {
+      panel.querySelector('.form').outerHTML =
+        '<div class="locked">This panel is read-only. Set <code>dashboard.actions: true</code> in the ' +
+        'proxy config to let it move data — with it on, anyone holding a panel link can move an ' +
+        'account, not just look at one.</div>';
+    }
+  }
+
+  async function post(path, fields, outEl) {
+    outEl.className = 'outcome';
+    outEl.textContent = 'working…';
+    try {
+      const r = await fetch('api/actions/' + path + '?token=' + encodeURIComponent(token), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams(fields).toString()
+      });
+      const text = await r.text();
+      outEl.className = 'outcome ' + (r.ok ? 'ok' : 'bad');
+      outEl.textContent = text;
+      if (r.ok) poll();
+    } catch (e) {
+      outEl.className = 'outcome bad';
+      outEl.textContent = e.message;
+    }
+  }
+
+  let resolveTimer = null;
+  q('m-name').addEventListener('input', () => {
+    clearTimeout(resolveTimer);
+    const name = q('m-name').value.trim();
+    const box = q('m-resolved');
+    q('m-go').disabled = true;
+    if (!name) { box.classList.remove('on'); return; }
+    resolveTimer = setTimeout(async () => {
+      try {
+        const d = await resolve(name);
+        if (d.premium) {
+          box.innerHTML = '<span>cracked <b>' + esc(d.offline) + '</b></span><span>→</span>' +
+                          '<span>premium <b>' + esc(d.premium) + '</b></span>';
+          q('m-go').disabled = false;
+        } else {
+          box.innerHTML = '<span class="warn">Mojang has no account by that name — ' +
+                          'nothing to move them to.</span>';
+        }
+        box.classList.add('on');
+      } catch (e) { box.classList.remove('on'); }
+    }, 350);
+  });
+
+  q('m-go').addEventListener('click', async () => {
+    const name = q('m-name').value.trim();
+    const d = await resolve(name);
+    if (!d.premium) return;
+    if (!confirm('Move ' + name + '\n\nfrom ' + d.offline + '\nto ' + d.premium +
+                 '\n\nEvery server applies this. Back up first.')) return;
+    post('migrate', {from: d.offline, to: d.premium, username: name}, q('m-out'));
+  });
+
+  q('p-go').addEventListener('click', () => {
+    const from = q('p-from').value.trim(), to = q('p-to').value.trim();
+    if (!from || !to) { q('p-out').className = 'outcome bad'; q('p-out').textContent = 'both are required'; return; }
+    if (!confirm('Move\n\n' + from + '\nto ' + to + '\n\nEvery server applies this. Back up first.')) return;
+    post('migrate', {from: from, to: to, username: q('p-name').value.trim()}, q('p-out'));
+  });
+
+  q('r-go').addEventListener('click', () => {
+    post('rename', {uuid: q('r-uuid').value.trim(), old: q('r-old').value.trim(),
+                    new: q('r-new').value.trim()}, q('r-out'));
+  });
 
   if (window.matchMedia('(prefers-color-scheme: light)').matches) {
     document.documentElement.dataset.light = '1';

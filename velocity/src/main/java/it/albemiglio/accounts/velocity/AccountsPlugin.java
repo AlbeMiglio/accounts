@@ -11,6 +11,7 @@ import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import it.albemiglio.accounts.api.MigrationService;
 import it.albemiglio.accounts.api.MigrationStatus;
+import it.albemiglio.accounts.core.dashboard.DashboardActions;
 import it.albemiglio.accounts.core.dashboard.MigrationDashboard;
 import it.albemiglio.accounts.core.services.AccountsEngine;
 import it.albemiglio.accounts.core.services.InstanceId;
@@ -73,8 +74,14 @@ public class AccountsPlugin implements MigrationService {
             if (Boolean.TRUE.equals(dashboardConfig.get("enabled"))) {
                 String bind = (String) dashboardConfig.getOrDefault("bind", "127.0.0.1");
                 int dashboardPort = ((Number) dashboardConfig.getOrDefault("port", 8081)).intValue();
+                boolean allowActions = Boolean.TRUE.equals(dashboardConfig.get("actions"));
                 this.dashboard = MigrationDashboard.start(bind, dashboardPort,
-                        (String) dashboardConfig.getOrDefault("token", ""), engine::inFlight, engine::timings);
+                        (String) dashboardConfig.getOrDefault("token", ""), engine::inFlight, engine::timings,
+                        allowActions ? new EngineActions(engine) : DashboardActions.NONE);
+                if (allowActions) {
+                    logger.warn("Dashboard actions are ON: anyone holding a panel token can move player "
+                            + "data, not just read it.");
+                }
                 // The bind address is where it listens; the link is where an operator reaches it, which
                 // on a loopback bind is the far end of their tunnel and not this address at all.
                 String linkBase = (String) dashboardConfig.getOrDefault("link-base", "");

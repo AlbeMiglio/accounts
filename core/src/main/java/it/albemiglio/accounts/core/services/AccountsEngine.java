@@ -26,18 +26,21 @@ public final class AccountsEngine implements AutoCloseable {
     private final RedisMigrationStore store;
     private final RedisInstanceRegistry registry;
     private final RedisMigrationTimings timings;
+    private final RedisMigrationProgress progress;
     private final RedisMigrationSubscriber subscriber;
     private final ScheduledExecutorService heartbeat;
     private final JedisPool pool;
 
     private AccountsEngine(BroadcastMigrationService service, RedisMigrationStore store,
                            RedisInstanceRegistry registry,
-                           RedisMigrationTimings timings, RedisMigrationSubscriber subscriber,
+                           RedisMigrationTimings timings, RedisMigrationProgress progress,
+                           RedisMigrationSubscriber subscriber,
                            ScheduledExecutorService heartbeat, JedisPool pool) {
         this.service = service;
         this.store = store;
         this.registry = registry;
         this.timings = timings;
+        this.progress = progress;
         this.subscriber = subscriber;
         this.heartbeat = heartbeat;
         this.pool = pool;
@@ -52,7 +55,8 @@ public final class AccountsEngine implements AutoCloseable {
         registry.heartbeat();
 
         RedisMigrationTimings timings = new RedisMigrationTimings(pool);
-        InstanceMigrator migrator = new InstanceMigrator(instanceId, modules, store, timings);
+        RedisMigrationProgress progress = new RedisMigrationProgress(pool);
+        InstanceMigrator migrator = new InstanceMigrator(instanceId, modules, store, timings, progress);
         RedisMigrationPublisher publisher = new RedisMigrationPublisher(pool);
         BroadcastMigrationService service = new BroadcastMigrationService(instanceId, migrator, store, publisher, registry);
 
@@ -67,7 +71,7 @@ public final class AccountsEngine implements AutoCloseable {
         });
         heartbeat.scheduleAtFixedRate(registry::heartbeat, 10, 10, TimeUnit.SECONDS);
 
-        return new AccountsEngine(service, store, registry, timings, subscriber, heartbeat, pool);
+        return new AccountsEngine(service, store, registry, timings, progress, subscriber, heartbeat, pool);
     }
 
     /**
@@ -113,6 +117,11 @@ public final class AccountsEngine implements AutoCloseable {
     }
 
     /** Where a migration has got to: who still owes it, who has applied it. */
+    /** How far through its modules each server is on this transfer, while it is still working. */
+    public java.util.Map<String, String> progress(String migrationId) {
+        return progress.of(migrationId);
+    }
+
     /** Which servers have heartbeated recently — the ones a transfer will actually reach. */
     public java.util.Set<String> activeInstances() {
         return registry.activeInstances();

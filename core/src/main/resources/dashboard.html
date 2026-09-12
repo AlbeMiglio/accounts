@@ -173,6 +173,26 @@
   .chip.wait { color: var(--wait); border-color: color-mix(in srgb, var(--wait) 45%, var(--line)); }
   .chip.bad { color: var(--late); border-color: color-mix(in srgb, var(--late) 50%, var(--line)); }
 
+  /* ---- what is moving, per server ---------------------------------------- */
+  .live { padding: .9rem 1.15rem 1rem; border-top: 1px solid var(--line); }
+  .live:first-child { border-top: 0; }
+  .live .top { display: flex; align-items: center; gap: .6rem; }
+  .live .top .label { margin-left: auto; }
+  .lanes { display: flex; flex-direction: column; gap: .45rem; margin-top: .7rem; }
+  .lane { display: grid; grid-template-columns: minmax(5.5rem, 9rem) 1fr auto; gap: .8rem;
+          align-items: center; font-size: .82rem; }
+  .lane .who { font-family: var(--mono); font-size: .76rem; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  .lane .track { display: block; height: 8px; border-radius: 999px; background: var(--panel-2);
+                 border: 1px solid var(--line); overflow: hidden; }
+  .lane .fill { display: block; height: 100%; border-radius: 999px; background: var(--wait);
+                transition: width .45s cubic-bezier(.2,.7,.3,1); }
+  .lane.done .fill { background: var(--go); }
+  .lane.idle .fill { background: var(--dim); }
+  .lane .n { font-family: var(--mono); font-size: .72rem; color: var(--muted);
+             min-width: 4.2rem; text-align: right; }
+  .lane.done .n { color: var(--go); }
+
   .servers { display: flex; flex-direction: column; }
   .server { display: grid; grid-template-columns: 1fr auto auto; gap: .9rem; align-items: center;
             padding: .55rem 1.15rem; border-top: 1px solid var(--line); font-size: .84rem; }
@@ -413,6 +433,35 @@
     }
   }
 
+  /* ---- what is moving: one lane per server, filling as it works ----------- */
+  function lanes(m) {
+    const applied = new Set(m.applied || []);
+    const progress = m.progress || {};
+    // Every server this transfer is waiting on, plus the ones already through it.
+    const servers = [...new Set([...(m.applied || []), ...(m.waitingOn || [])])];
+    const rows = servers.map(name => {
+      if (applied.has(name)) {
+        return lane(name, 100, 'done', 'done');
+      }
+      const raw = progress[name];
+      if (!raw) {
+        return lane(name, 0, 'idle', 'waiting');
+      }
+      const [done, total] = raw.split('/').map(Number);
+      const pct = total > 0 ? Math.min(99, Math.round(100 * done / total)) : 0;
+      return lane(name, pct, '', done + '/' + total);
+    }).join('');
+    return '<div class="live"><div class="top">' + mark(m.from) +
+      '<span style="color:var(--muted)">→</span>' + mark(m.to) +
+      '<span class="label">' + (m.appliedCount || 0) + ' of ' + (m.expectedCount || 0) +
+      ' servers</span></div><div class="lanes">' + rows + '</div></div>';
+  }
+
+  const lane = (name, pct, cls, note) =>
+    '<div class="lane ' + cls + '"><span class="who">' + esc(name) + '</span>' +
+    '<span class="track"><span class="fill" style="width:' + pct + '%"></span></span>' +
+    '<span class="n">' + esc(note) + '</span></div>';
+
   /* ---- the glance: what is moving, and whether the network is all here ---- */
   async function refresh() {
     let live = [], stats = null;
@@ -425,10 +474,11 @@
       q('state').innerHTML = '<span class="outcome bad">' + esc(e.message) + '</span>';
       return;
     }
-    q('live').innerHTML = live.length ? '<div class="card"><h2>Moving right now</h2>' +
-      live.map(m => transferRow({from: m.from, to: m.to, username: m.username,
-                                 applied: m.applied, waitingOn: m.waitingOn, failed: [],
-                                 complete: false, startedAt: 0}, false)).join('') + '</div>' : '';
+    q('live').innerHTML = live.length
+      ? '<div class="card"><h2>Moving right now <small>' + live.length +
+        (live.length > 1 ? ' transfers' : ' transfer') + '</small></h2>' +
+        live.map(lanes).join('') + '</div>'
+      : '';
 
     try { stats = await (await api('analytics')).json(); } catch (e) { return; }
     const active = new Set(stats.active || []);

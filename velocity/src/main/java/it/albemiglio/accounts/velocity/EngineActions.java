@@ -54,4 +54,9 @@ final class EngineActions implements DashboardActions {
     public java.util.Set<String> activeInstances() {
         return engine.activeInstances();
     }
+
+    @Override
+    public java.util.Map<String, String> progress(String migrationId) {
+        return engine.progress(migrationId);
+    }
 }

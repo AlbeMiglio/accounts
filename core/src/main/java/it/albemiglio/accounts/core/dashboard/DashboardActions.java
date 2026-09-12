@@ -43,6 +43,11 @@ public interface DashboardActions {
         public java.util.Set<String> activeInstances() {
             return Collections.emptySet();
         }
+
+        @Override
+        public java.util.Map<String, String> progress(String migrationId) {
+            return Collections.emptyMap();
+        }
     };
 
     boolean enabled();
@@ -64,4 +69,7 @@ public interface DashboardActions {
 
     /** Which servers have heartbeated recently — the ones a transfer will actually reach. */
     java.util.Set<String> activeInstances();
+
+    /** Instance id to {@code "done/total"} for a transfer still being applied. */
+    java.util.Map<String, String> progress(String migrationId);
 }

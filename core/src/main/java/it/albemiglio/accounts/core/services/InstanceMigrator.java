@@ -23,17 +23,24 @@ public final class InstanceMigrator {
     private final Collection<Module> modules;
     private final MigrationLog log;
     private final MigrationTimings timings;
+    private final MigrationProgress progress;
 
     public InstanceMigrator(String instanceId, Collection<Module> modules, MigrationLog log) {
-        this(instanceId, modules, log, MigrationTimings.NONE);
+        this(instanceId, modules, log, MigrationTimings.NONE, MigrationProgress.NONE);
     }
 
     public InstanceMigrator(String instanceId, Collection<Module> modules, MigrationLog log,
                             MigrationTimings timings) {
+        this(instanceId, modules, log, timings, MigrationProgress.NONE);
+    }
+
+    public InstanceMigrator(String instanceId, Collection<Module> modules, MigrationLog log,
+                            MigrationTimings timings, MigrationProgress progress) {
         this.instanceId = instanceId;
         this.modules = modules;
         this.log = log;
         this.timings = timings == null ? MigrationTimings.NONE : timings;
+        this.progress = progress == null ? MigrationProgress.NONE : progress;
     }
 
     public void apply(Task task) {
@@ -44,6 +51,12 @@ public final class InstanceMigrator {
         boolean anyFailed = false;
         long started = System.nanoTime();
         int ran = 0;
+        int total = 0;
+        for (Module module : modules) {
+            if (module.isEnabled()) {
+                total++;
+            }
+        }
         for (Module module : modules) {
             if (!module.isEnabled()) {
                 continue;
@@ -63,6 +76,7 @@ public final class InstanceMigrator {
             }
             ran++;
             timings.module(instanceId, module.getName(), millisSince(moduleStarted), ok);
+            progress.report(id, instanceId, ran, total);
         }
         timings.migration(id, instanceId, millisSince(started), ran);
         if (anyFailed) {

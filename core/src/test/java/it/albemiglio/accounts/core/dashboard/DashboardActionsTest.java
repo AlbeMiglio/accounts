@@ -59,6 +59,11 @@ class DashboardActionsTest {
         public java.util.Set<String> activeInstances() {
             return Collections.emptySet();
         }
+
+        @Override
+        public java.util.Map<String, String> progress(String migrationId) {
+            return Collections.singletonMap("kingdoms", "61/85");
+        }
     }
 
     private MigrationDashboard panel(DashboardActions actions) throws IOException {
@@ -152,6 +157,24 @@ class DashboardActionsTest {
     void mojangsUndashedFormBecomesTheDashedOneEveryStoreUses() {
         assertEquals(UUID.fromString("cc0685ca-7daf-40a5-8c18-a2e997cad2bb"),
                 MojangNames.dashed("cc0685ca7daf40a58c18a2e997cad2bb"));
+    }
+
+    /**
+     * Applied-or-not says nothing about whether a server is moving, so the in-flight feed carries how
+     * far through its own modules each one is. A transfer nobody is working on carries an empty map,
+     * not a missing field — the panel draws a lane either way.
+     */
+    @Test
+    void theInFlightFeedCarriesHowFarEachServerHasGot() {
+        it.albemiglio.accounts.api.MigrationStatus status = new it.albemiglio.accounts.api.MigrationStatus(
+                FROM, TO, "Salefre7889",
+                new java.util.LinkedHashSet<>(java.util.Arrays.asList("velocity", "kingdoms")),
+                java.util.Collections.singleton("velocity"));
+
+        String json = new String(MigrationDashboard.json(Collections.singletonList(status), new Recorder()),
+                StandardCharsets.UTF_8);
+
+        assertTrue(json.contains("\"progress\":{\"kingdoms\":\"61/85\"}"), json);
     }
 
     private static final class Response {

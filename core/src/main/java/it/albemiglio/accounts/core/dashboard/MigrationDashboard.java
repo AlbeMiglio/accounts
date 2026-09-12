@@ -86,7 +86,8 @@ public final class MigrationDashboard implements AutoCloseable {
         byte[] page = readPage();
         MigrationDashboard dashboard = new MigrationDashboard(server);
         server.createContext("/api/migrations", exchange ->
-                dashboard.guarded(exchange, token, () -> respond(exchange, 200, "application/json", json(inFlight.get()))));
+                dashboard.guarded(exchange, token, () ->
+                        respond(exchange, 200, "application/json", json(inFlight.get(), actions))));
         server.createContext("/api/analytics", exchange ->
                 dashboard.guarded(exchange, token, () ->
                         respond(exchange, 200, "application/json",
@@ -348,9 +349,17 @@ public final class MigrationDashboard implements AutoCloseable {
     }
 
     static byte[] json(List<MigrationStatus> inFlight) {
+        return json(inFlight, DashboardActions.NONE);
+    }
+
+    static byte[] json(List<MigrationStatus> inFlight, DashboardActions actions) {
         JsonArray array = new JsonArray();
         for (MigrationStatus status : inFlight) {
             JsonObject entry = new JsonObject();
+            // A server is either applied or not, which says nothing about whether it is moving. How far
+            // through its own modules it is does.
+            entry.add("progress", GSON.toJsonTree(
+                    actions.progress(status.from() + ">" + status.to())));
             entry.addProperty("from", String.valueOf(status.from()));
             entry.addProperty("to", String.valueOf(status.to()));
             entry.addProperty("username", status.username());

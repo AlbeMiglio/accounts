@@ -62,7 +62,7 @@ class DashboardActionsTest {
 
         @Override
         public java.util.Map<String, String> progress(String migrationId) {
-            return Collections.singletonMap("kingdoms", "61/85");
+            return Collections.singletonMap("kingdoms", "61/85@1757700000000");
         }
     }
 
@@ -161,8 +161,8 @@ class DashboardActionsTest {
 
     /**
      * Applied-or-not says nothing about whether a server is moving, so the in-flight feed carries how
-     * far through its own modules each one is. A transfer nobody is working on carries an empty map,
-     * not a missing field — the panel draws a lane either way.
+     * far through its own modules each one is, and since when: the modules are nothing like equal in
+     * cost, so a count alone cannot tell a server that is working from one that is dragging.
      */
     @Test
     void theInFlightFeedCarriesHowFarEachServerHasGot() {
@@ -174,7 +174,7 @@ class DashboardActionsTest {
         String json = new String(MigrationDashboard.json(Collections.singletonList(status), new Recorder()),
                 StandardCharsets.UTF_8);
 
-        assertTrue(json.contains("\"progress\":{\"kingdoms\":\"61/85\"}"), json);
+        assertTrue(json.contains("\"progress\":{\"kingdoms\":\"61/85@1757700000000\"}"), json);
     }
 
     private static final class Response {

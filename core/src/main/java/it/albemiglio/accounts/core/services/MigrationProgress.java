@@ -12,7 +12,7 @@ public interface MigrationProgress {
 
     MigrationProgress NONE = new MigrationProgress() {
         @Override
-        public void report(String migrationId, String instanceId, int done, int total) {
+        public void report(String migrationId, String instanceId, int done, int total, long startedAt) {
         }
 
         @Override
@@ -21,9 +21,13 @@ public interface MigrationProgress {
         }
     };
 
-    /** Called as each module finishes. {@code done} counts the modules run, {@code total} those to run. */
-    void report(String migrationId, String instanceId, int done, int total);
+    /**
+     * Called as each module finishes. {@code done} counts the modules run, {@code total} those to run,
+     * and {@code startedAt} is when this server began — without it there is no telling a server that is
+     * working from one that is dragging, since the modules are nothing like equal in cost.
+     */
+    void report(String migrationId, String instanceId, int done, int total, long startedAt);
 
-    /** Instance id to {@code "done/total"}, for the servers currently working on this migration. */
+    /** Instance id to {@code "done/total@startedAt"}, for the servers working on this migration. */
     Map<String, String> of(String migrationId);
 }

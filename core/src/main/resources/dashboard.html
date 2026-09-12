@@ -185,13 +185,19 @@
                text-overflow: ellipsis; white-space: nowrap; }
   .lane .track { display: block; height: 8px; border-radius: 999px; background: var(--panel-2);
                  border: 1px solid var(--line); overflow: hidden; }
-  .lane .fill { display: block; height: 100%; border-radius: 999px; background: var(--wait);
+  /* Colour is pace, not state: green while a server is inside its own usual time, amber once it is
+     over it, red when it is well over. A server that is always slow is not a fault — it is a server
+     with more to move — so it stays green while it behaves like itself. */
+  .lane .fill { display: block; height: 100%; border-radius: 999px; background: var(--go);
                 transition: width .45s cubic-bezier(.2,.7,.3,1); }
-  .lane.done .fill { background: var(--go); }
+  .lane.late .fill { background: var(--wait); }
+  .lane.stalled .fill { background: var(--late); }
   .lane.idle .fill { background: var(--dim); }
   .lane .n { font-family: var(--mono); font-size: .72rem; color: var(--muted);
-             min-width: 4.2rem; text-align: right; }
+             min-width: 7.5rem; text-align: right; }
   .lane.done .n { color: var(--go); }
+  .lane.late .n { color: var(--wait); }
+  .lane.stalled .n { color: var(--late); }
 
   .servers { display: flex; flex-direction: column; }
   .server { display: grid; grid-template-columns: 1fr auto auto; gap: .9rem; align-items: center;
@@ -447,9 +453,18 @@
       if (!raw) {
         return lane(name, 0, 'idle', 'waiting');
       }
-      const [done, total] = raw.split('/').map(Number);
+      const [counts, startedAt] = raw.split('@');
+      const [done, total] = counts.split('/').map(Number);
       const pct = total > 0 ? Math.min(99, Math.round(100 * done / total)) : 0;
-      return lane(name, pct, '', done + '/' + total);
+      const usual = typical(name);
+      const elapsed = startedAt ? Date.now() - Number(startedAt) : 0;
+      // Against its own usual time, not against the other servers: one that always takes nine seconds
+      // is not slow, it has eleven gigabytes of worlds.
+      let cls = '';
+      if (usual && elapsed > usual * 2) cls = 'stalled';
+      else if (usual && elapsed > usual * 1.25) cls = 'late';
+      const note = done + '/' + total + (usual ? ' · ' + ms(elapsed) + ' of ~' + ms(usual) : '');
+      return lane(name, pct, cls, note);
     }).join('');
     return '<div class="live"><div class="top">' + mark(m.from) +
       '<span style="color:var(--muted)">→</span>' + mark(m.to) +
@@ -461,6 +476,10 @@
     '<div class="lane ' + cls + '"><span class="who">' + esc(name) + '</span>' +
     '<span class="track"><span class="fill" style="width:' + pct + '%"></span></span>' +
     '<span class="n">' + esc(note) + '</span></div>';
+
+  /* What this server usually takes for a whole transfer, from what it has actually done before. */
+  let averages = {};
+  const typical = name => averages[name] || 0;
 
   /* ---- the glance: what is moving, and whether the network is all here ---- */
   async function refresh() {
@@ -474,13 +493,21 @@
       q('state').innerHTML = '<span class="outcome bad">' + esc(e.message) + '</span>';
       return;
     }
+    // The averages first: a lane's colour is its pace against them, and a lane drawn before they
+    // arrive would be green for a second whatever it was doing.
+    try { stats = await (await api('analytics')).json(); } catch (e) { stats = null; }
+    if (stats) {
+      averages = {};
+      for (const i of stats.instances || []) averages[i.name] = i.average;
+    }
+
     q('live').innerHTML = live.length
       ? '<div class="card"><h2>Moving right now <small>' + live.length +
         (live.length > 1 ? ' transfers' : ' transfer') + '</small></h2>' +
         live.map(lanes).join('') + '</div>'
       : '';
 
-    try { stats = await (await api('analytics')).json(); } catch (e) { return; }
+    if (!stats) return;
     const active = new Set(stats.active || []);
     const known = (stats.instances || []).slice().sort((a, b) => b.average - a.average);
     const names = new Set([...active, ...known.map(i => i.name)]);

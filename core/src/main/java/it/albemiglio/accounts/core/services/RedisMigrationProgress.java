@@ -24,9 +24,9 @@ public final class RedisMigrationProgress implements MigrationProgress {
     }
 
     @Override
-    public void report(String migrationId, String instanceId, int done, int total) {
+    public void report(String migrationId, String instanceId, int done, int total, long startedAt) {
         try (Jedis jedis = pool.getResource()) {
-            jedis.hset(KEY + migrationId, instanceId, done + "/" + total);
+            jedis.hset(KEY + migrationId, instanceId, done + "/" + total + "@" + startedAt);
             if (done <= 1) {
                 jedis.expire(KEY + migrationId, TTL_SECONDS);   // once per instance, not once per module
             }

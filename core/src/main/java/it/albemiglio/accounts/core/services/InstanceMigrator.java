@@ -50,6 +50,7 @@ public final class InstanceMigrator {
         }
         boolean anyFailed = false;
         long started = System.nanoTime();
+        long startedAt = System.currentTimeMillis();
         int ran = 0;
         int total = 0;
         for (Module module : modules) {
@@ -76,7 +77,7 @@ public final class InstanceMigrator {
             }
             ran++;
             timings.module(instanceId, module.getName(), millisSince(moduleStarted), ok);
-            progress.report(id, instanceId, ran, total);
+            progress.report(id, instanceId, ran, total, startedAt);
         }
         timings.migration(id, instanceId, millisSince(started), ran);
         if (anyFailed) {

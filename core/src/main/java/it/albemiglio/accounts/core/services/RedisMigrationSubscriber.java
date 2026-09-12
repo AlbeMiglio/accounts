@@ -25,6 +25,11 @@ public class RedisMigrationSubscriber {
     private static final long BACKOFF_INITIAL_MS = 100;
     private static final long BACKOFF_MAX_MS = 5000;
 
+    /** Answers a question asked on the ask channel. Absent on an instance that has nothing to answer. */
+    public interface Asked {
+        void diagnose(String requestId, java.util.UUID probe);
+    }
+
     private final JedisPool pool;
     private final BroadcastMigrationService service;
     private final JedisPubSub pubSub;
@@ -32,11 +37,30 @@ public class RedisMigrationSubscriber {
     private Thread thread;
 
     public RedisMigrationSubscriber(JedisPool pool, BroadcastMigrationService service) {
+        this(pool, service, null);
+    }
+
+    public RedisMigrationSubscriber(JedisPool pool, BroadcastMigrationService service, Asked asked) {
         this.pool = pool;
         this.service = service;
         this.pubSub = new JedisPubSub() {
             @Override
             public void onMessage(String channel, String message) {
+                if (DiagnoseBus.ASK_CHANNEL.equals(channel)) {
+                    // Questions are answered off this thread: the probe reads every module's database,
+                    // and this connection is what carries the migrations.
+                    if (asked != null) {
+                        String[] parts = message.split(" ");
+                        if (parts.length == 3 && "diagnose".equals(parts[0])) {
+                            try {
+                                asked.diagnose(parts[1], java.util.UUID.fromString(parts[2]));
+                            } catch (RuntimeException e) {
+                                LOG.log(Level.WARNING, "Discarding malformed question: " + message, e);
+                            }
+                        }
+                    }
+                    return;
+                }
                 if (Rename.looksLikeOne(message)) {
                     try {
                         service.handle(Rename.fromString(message));
@@ -93,7 +117,7 @@ public class RedisMigrationSubscriber {
     /** One blocking subscribe on a fresh pooled connection; returns when unsubscribed, throws on connection error. */
     void subscribeOnce() {
         try (Jedis jedis = pool.getResource()) {
-            jedis.subscribe(pubSub, RedisMigrationPublisher.CHANNEL);
+            jedis.subscribe(pubSub, RedisMigrationPublisher.CHANNEL, DiagnoseBus.ASK_CHANNEL);
         }
     }
 

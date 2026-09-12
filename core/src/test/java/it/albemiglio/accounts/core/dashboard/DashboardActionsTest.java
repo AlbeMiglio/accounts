@@ -27,7 +27,7 @@ class DashboardActionsTest {
     private static final UUID TO = UUID.fromString("cc0685ca-7daf-40a5-8c18-a2e997cad2bb");
 
     /** Records what it was asked to do instead of doing it. */
-    private static final class Recorder implements DashboardActions {
+    private static class Recorder implements DashboardActions {
         final List<String> done = new ArrayList<>();
 
         @Override
@@ -63,6 +63,13 @@ class DashboardActionsTest {
         @Override
         public java.util.Map<String, String> progress(String migrationId) {
             return Collections.singletonMap("kingdoms", "61/85@1757700000000");
+        }
+
+        @Override
+        public java.util.Map<String, List<String>> diagnose(UUID probe) {
+            return Collections.singletonMap("kingdoms", java.util.Arrays.asList(
+                    "cmi\tCMI_users.player_uuid\tVERIFIED\tfound in the expected encoding",
+                    "gravesx\tdatabase\tHELD_BY_PLUGIN\tthe file is locked"));
         }
     }
 
@@ -175,6 +182,43 @@ class DashboardActionsTest {
                 StandardCharsets.UTF_8);
 
         assertTrue(json.contains("\"progress\":{\"kingdoms\":\"61/85@1757700000000\"}"), json);
+    }
+
+    @Test
+    void reportsWhatEachServerSaysAboutThePlayersData() {
+        String json = new String(MigrationDashboard.diagnosis(TO.toString(), new Recorder()),
+                StandardCharsets.UTF_8);
+
+        assertTrue(json.contains("\"module\":\"gravesx\""), json);
+        assertTrue(json.contains("\"status\":\"HELD_BY_PLUGIN\""), json);
+        assertTrue(json.contains("\"detail\":\"the file is locked\""), json);
+    }
+
+    /**
+     * A server that says nothing has not given a clean bill of health — it is unreachable, or slower
+     * than the wait. Reporting it as silent is the whole point of listing it separately.
+     */
+    @Test
+    void aServerThatDidNotAnswerIsNotMistakenForAHealthyOne() {
+        DashboardActions oneIsQuiet = new Recorder() {
+            @Override
+            public java.util.Set<String> activeInstances() {
+                return new java.util.LinkedHashSet<>(java.util.Arrays.asList("kingdoms", "roleplay"));
+            }
+        };
+
+        String json = new String(MigrationDashboard.diagnosis(TO.toString(), oneIsQuiet),
+                StandardCharsets.UTF_8);
+
+        assertTrue(json.contains("\"silent\":[\"roleplay\"]"), json);
+    }
+
+    @Test
+    void refusesToAskAboutSomethingThatIsNotAUuid() {
+        String json = new String(MigrationDashboard.diagnosis("Salefre7889", new Recorder()),
+                StandardCharsets.UTF_8);
+
+        assertTrue(json.contains("not a uuid"), json);
     }
 
     private static final class Response {

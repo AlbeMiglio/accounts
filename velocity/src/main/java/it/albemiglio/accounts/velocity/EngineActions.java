@@ -59,4 +59,9 @@ final class EngineActions implements DashboardActions {
     public java.util.Map<String, String> progress(String migrationId) {
         return engine.progress(migrationId);
     }
+
+    @Override
+    public java.util.Map<String, List<String>> diagnose(UUID probe) {
+        return engine.diagnose(probe);
+    }
 }

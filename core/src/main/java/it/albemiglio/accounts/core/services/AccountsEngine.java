@@ -27,6 +27,7 @@ public final class AccountsEngine implements AutoCloseable {
     private final RedisInstanceRegistry registry;
     private final RedisMigrationTimings timings;
     private final RedisMigrationProgress progress;
+    private final DiagnoseBus diagnoses;
     private final RedisMigrationSubscriber subscriber;
     private final ScheduledExecutorService heartbeat;
     private final JedisPool pool;
@@ -34,13 +35,14 @@ public final class AccountsEngine implements AutoCloseable {
     private AccountsEngine(BroadcastMigrationService service, RedisMigrationStore store,
                            RedisInstanceRegistry registry,
                            RedisMigrationTimings timings, RedisMigrationProgress progress,
-                           RedisMigrationSubscriber subscriber,
+                           DiagnoseBus diagnoses, RedisMigrationSubscriber subscriber,
                            ScheduledExecutorService heartbeat, JedisPool pool) {
         this.service = service;
         this.store = store;
         this.registry = registry;
         this.timings = timings;
         this.progress = progress;
+        this.diagnoses = diagnoses;
         this.subscriber = subscriber;
         this.heartbeat = heartbeat;
         this.pool = pool;
@@ -60,7 +62,17 @@ public final class AccountsEngine implements AutoCloseable {
         RedisMigrationPublisher publisher = new RedisMigrationPublisher(pool);
         BroadcastMigrationService service = new BroadcastMigrationService(instanceId, migrator, store, publisher, registry);
 
-        RedisMigrationSubscriber subscriber = new RedisMigrationSubscriber(pool, service);
+        DiagnoseBus diagnoses = new DiagnoseBus(pool);
+        // Answering reads every module's database, so it runs off the subscriber's connection — that
+        // one carries the migrations, and a slow database must not hold them up.
+        java.util.concurrent.ExecutorService answering = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "accounts-diagnose");
+            thread.setDaemon(true);
+            return thread;
+        });
+        RedisMigrationSubscriber subscriber = new RedisMigrationSubscriber(pool, service,
+                (requestId, probe) -> answering.submit(
+                        () -> diagnoses.answer(requestId, instanceId, probe, modules)));
         subscriber.start();
         service.recoverPending();
 
@@ -71,7 +83,8 @@ public final class AccountsEngine implements AutoCloseable {
         });
         heartbeat.scheduleAtFixedRate(registry::heartbeat, 10, 10, TimeUnit.SECONDS);
 
-        return new AccountsEngine(service, store, registry, timings, progress, subscriber, heartbeat, pool);
+        return new AccountsEngine(service, store, registry, timings, progress, diagnoses,
+                subscriber, heartbeat, pool);
     }
 
     /**
@@ -117,6 +130,14 @@ public final class AccountsEngine implements AutoCloseable {
     }
 
     /** Where a migration has got to: who still owes it, who has applied it. */
+    /**
+     * Asks every server where this player's data actually is. Read-only, and it blocks for as long as
+     * it waits for them — call it off whatever thread you would mind losing for a few seconds.
+     */
+    public java.util.Map<String, List<String>> diagnose(UUID probe) {
+        return diagnoses.ask(probe, activeInstances());
+    }
+
     /** How far through its modules each server is on this transfer, while it is still working. */
     public java.util.Map<String, String> progress(String migrationId) {
         return progress.of(migrationId);

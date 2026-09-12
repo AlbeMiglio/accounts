@@ -48,6 +48,11 @@ public interface DashboardActions {
         public java.util.Map<String, String> progress(String migrationId) {
             return Collections.emptyMap();
         }
+
+        @Override
+        public java.util.Map<String, List<String>> diagnose(UUID probe) {
+            return Collections.emptyMap();
+        }
     };
 
     boolean enabled();
@@ -70,6 +75,12 @@ public interface DashboardActions {
     /** Which servers have heartbeated recently — the ones a transfer will actually reach. */
     java.util.Set<String> activeInstances();
 
-    /** Instance id to {@code "done/total"} for a transfer still being applied. */
+    /** Instance id to {@code "done/total@startedAt"} for a transfer still being applied. */
     java.util.Map<String, String> progress(String migrationId);
+
+    /**
+     * Asks every server where this player's data is. Read-only, and slow by nature: it waits on the
+     * other servers' databases.
+     */
+    java.util.Map<String, List<String>> diagnose(UUID probe);
 }

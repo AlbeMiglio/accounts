@@ -92,6 +92,9 @@ public final class MigrationDashboard implements AutoCloseable {
                 dashboard.guarded(exchange, token, () ->
                         respond(exchange, 200, "application/json",
                                 analytics(timings.get(), actions.activeInstances()))));
+        server.createContext("/api/diagnose", exchange -> dashboard.guarded(exchange, token, () ->
+                respond(exchange, 200, "application/json", diagnosis(
+                        param(exchange.getRequestURI().getRawQuery(), "uuid"), actions))));
         server.createContext("/api/player", exchange -> dashboard.guarded(exchange, token, () ->
                 respond(exchange, 200, "application/json", player(
                         param(exchange.getRequestURI().getRawQuery(), "q"), actions))));
@@ -299,6 +302,52 @@ public final class MigrationDashboard implements AutoCloseable {
         }
         root.add("transfers", transfers);
         return GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Where this player's data sits on every server, as each one reports it. A server missing from the
+     * answer did not say no — it said nothing, and the panel has to show that as its own state rather
+     * than as a clean bill of health.
+     */
+    static byte[] diagnosis(String uuid, DashboardActions actions) {
+        JsonObject root = new JsonObject();
+        UUID probe;
+        try {
+            probe = UUID.fromString(String.valueOf(uuid));
+        } catch (IllegalArgumentException e) {
+            root.addProperty("error", "not a uuid");
+            return GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
+        }
+        JsonObject servers = new JsonObject();
+        actions.diagnose(probe).forEach((instance, lines) -> {
+            JsonArray findings = new JsonArray();
+            for (String line : lines) {
+                String[] parts = line.split("\t", 4);
+                if (parts.length < 3) {
+                    continue;
+                }
+                JsonObject finding = new JsonObject();
+                finding.addProperty("module", parts[0]);
+                finding.addProperty("location", parts[1]);
+                finding.addProperty("status", parts[2]);
+                finding.addProperty("detail", parts.length > 3 ? parts[3] : "");
+                findings.add(finding);
+            }
+            servers.add(instance, findings);
+        });
+        root.add("servers", servers);
+        root.add("silent", GSON.toJsonTree(silent(actions, servers)));
+        return GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static java.util.List<String> silent(DashboardActions actions, JsonObject answered) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String instance : actions.activeInstances()) {
+            if (!answered.has(instance)) {
+                out.add(instance);
+            }
+        }
+        return out;
     }
 
     private static JsonObject transfer(RedisMigrationStore.Transfer transfer) {

@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import it.albemiglio.accounts.api.MigrationStatus;
+import it.albemiglio.accounts.core.services.RedisMigrationStore;
 import it.albemiglio.accounts.core.services.RedisMigrationTimings;
 
 import java.io.IOException;
@@ -88,10 +89,11 @@ public final class MigrationDashboard implements AutoCloseable {
                 dashboard.guarded(exchange, token, () -> respond(exchange, 200, "application/json", json(inFlight.get()))));
         server.createContext("/api/analytics", exchange ->
                 dashboard.guarded(exchange, token, () ->
-                        respond(exchange, 200, "application/json", analytics(timings.get()))));
-        server.createContext("/api/resolve", exchange -> dashboard.guarded(exchange, token, () ->
-                respond(exchange, 200, "application/json", resolved(
-                        param(exchange.getRequestURI().getRawQuery(), "name"), actions))));
+                        respond(exchange, 200, "application/json",
+                                analytics(timings.get(), actions.activeInstances()))));
+        server.createContext("/api/player", exchange -> dashboard.guarded(exchange, token, () ->
+                respond(exchange, 200, "application/json", player(
+                        param(exchange.getRequestURI().getRawQuery(), "q"), actions))));
         server.createContext("/api/actions/migrate", exchange ->
                 dashboard.action(exchange, token, actions, form -> {
                     UUID from = UUID.fromString(form.get("from"));
@@ -257,16 +259,64 @@ public final class MigrationDashboard implements AutoCloseable {
         return fields;
     }
 
-    /** Both halves of a player's identity: the offline one is a hash, the premium one is Mojang's. */
-    static byte[] resolved(String name, DashboardActions actions) {
+    /**
+     * Everything the panel knows about one player, answered from the one thing an operator has: a name
+     * they were given, or a uuid they were pasted. Both halves of the identity — the offline one is a
+     * hash of the name, the premium one is Mojang's — and every transfer either half has been part of.
+     */
+    static byte[] player(String query, DashboardActions actions) {
         JsonObject root = new JsonObject();
         root.addProperty("actions", actions.enabled());
-        if (name != null && !name.trim().isEmpty()) {
-            root.addProperty("name", name);
-            root.addProperty("offline", OfflineUuid.of(name).toString());
-            actions.premiumUuid(name).ifPresent(uuid -> root.addProperty("premium", uuid.toString()));
+        String q = query == null ? "" : query.trim();
+        if (q.isEmpty()) {
+            return GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
         }
+        root.addProperty("query", q);
+        java.util.List<String> lookups = new java.util.ArrayList<>();
+        if (q.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) {
+            root.addProperty("uuid", q.toLowerCase(java.util.Locale.ROOT));
+            lookups.add(q.toLowerCase(java.util.Locale.ROOT));
+        } else {
+            root.addProperty("name", q);
+            String offline = OfflineUuid.of(q).toString();
+            root.addProperty("offline", offline);
+            lookups.add(offline);
+            lookups.add(q);
+            actions.premiumUuid(q).ifPresent(uuid -> {
+                root.addProperty("premium", uuid.toString());
+                lookups.add(uuid.toString());
+            });
+        }
+        JsonArray transfers = new JsonArray();
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        for (String lookup : lookups) {
+            for (RedisMigrationStore.Transfer transfer : actions.history(lookup)) {
+                if (seen.add(transfer.id)) {
+                    transfers.add(transfer(transfer));
+                }
+            }
+        }
+        root.add("transfers", transfers);
         return GSON.toJson(root).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static JsonObject transfer(RedisMigrationStore.Transfer transfer) {
+        JsonObject entry = new JsonObject();
+        entry.addProperty("from", transfer.from);
+        entry.addProperty("to", transfer.to);
+        entry.addProperty("username", transfer.username);
+        entry.addProperty("startedAt", transfer.startedAt);
+        entry.addProperty("complete", transfer.complete());
+        entry.add("applied", GSON.toJsonTree(transfer.applied));
+        entry.add("waitingOn", GSON.toJsonTree(waiting(transfer)));
+        entry.add("failed", GSON.toJsonTree(transfer.failed));
+        return entry;
+    }
+
+    private static java.util.List<String> waiting(RedisMigrationStore.Transfer transfer) {
+        java.util.List<String> out = new java.util.ArrayList<>(transfer.expected);
+        out.removeAll(transfer.applied);
+        return out;
     }
 
     private static String param(String rawQuery, String name) {
@@ -317,7 +367,12 @@ public final class MigrationDashboard implements AutoCloseable {
 
     /** The recorded durations, shaped for the analytics view: per module, per instance, recent runs. */
     static byte[] analytics(RedisMigrationTimings.Snapshot snapshot) {
+        return analytics(snapshot, java.util.Collections.emptySet());
+    }
+
+    static byte[] analytics(RedisMigrationTimings.Snapshot snapshot, java.util.Set<String> active) {
         JsonObject root = new JsonObject();
+        root.add("active", GSON.toJsonTree(active));
         root.add("modules", counters(snapshot.modules));
         root.add("instances", counters(snapshot.instances));
         JsonArray recent = new JsonArray();

@@ -49,6 +49,16 @@ class DashboardActionsTest {
         public Optional<UUID> premiumUuid(String username) {
             return "Salefre7889".equals(username) ? Optional.of(TO) : Optional.empty();
         }
+
+        @Override
+        public List<it.albemiglio.accounts.core.services.RedisMigrationStore.Transfer> history(String who) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public java.util.Set<String> activeInstances() {
+            return Collections.emptySet();
+        }
     }
 
     private MigrationDashboard panel(DashboardActions actions) throws IOException {
@@ -110,8 +120,8 @@ class DashboardActionsTest {
     }
 
     @Test
-    void resolvesBothHalvesOfAPlayersIdentity() {
-        String json = new String(MigrationDashboard.resolved("Salefre7889", new Recorder()),
+    void findsBothHalvesOfAPlayerFromTheirNameAlone() {
+        String json = new String(MigrationDashboard.player("Salefre7889", new Recorder()),
                 StandardCharsets.UTF_8);
 
         assertTrue(json.contains("\"offline\":\"" + OfflineUuid.of("Salefre7889") + "\""), json);
@@ -121,11 +131,21 @@ class DashboardActionsTest {
     /** A name Mojang does not know has no premium half — the panel must not offer to move them. */
     @Test
     void leavesThePremiumHalfOutWhenMojangHasNoSuchName() {
-        String json = new String(MigrationDashboard.resolved("NotAPlayer", new Recorder()),
+        String json = new String(MigrationDashboard.player("NotAPlayer", new Recorder()),
                 StandardCharsets.UTF_8);
 
         assertTrue(json.contains("\"offline\""), json);
         assertTrue(!json.contains("\"premium\""), json);
+    }
+
+    /** A uuid pasted straight in is looked up as itself — no name, no Mojang, no offline hash. */
+    @Test
+    void aPastedUuidIsLookedUpAsItself() {
+        String json = new String(MigrationDashboard.player(TO.toString(), new Recorder()),
+                StandardCharsets.UTF_8);
+
+        assertTrue(json.contains("\"uuid\":\"" + TO + "\""), json);
+        assertTrue(!json.contains("\"offline\""), json);
     }
 
     @Test

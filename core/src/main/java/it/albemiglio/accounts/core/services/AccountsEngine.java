@@ -23,15 +23,20 @@ import java.util.concurrent.TimeUnit;
 public final class AccountsEngine implements AutoCloseable {
 
     private final BroadcastMigrationService service;
+    private final RedisMigrationStore store;
+    private final RedisInstanceRegistry registry;
     private final RedisMigrationTimings timings;
     private final RedisMigrationSubscriber subscriber;
     private final ScheduledExecutorService heartbeat;
     private final JedisPool pool;
 
-    private AccountsEngine(BroadcastMigrationService service, RedisMigrationTimings timings,
-                           RedisMigrationSubscriber subscriber,
+    private AccountsEngine(BroadcastMigrationService service, RedisMigrationStore store,
+                           RedisInstanceRegistry registry,
+                           RedisMigrationTimings timings, RedisMigrationSubscriber subscriber,
                            ScheduledExecutorService heartbeat, JedisPool pool) {
         this.service = service;
+        this.store = store;
+        this.registry = registry;
         this.timings = timings;
         this.subscriber = subscriber;
         this.heartbeat = heartbeat;
@@ -62,7 +67,7 @@ public final class AccountsEngine implements AutoCloseable {
         });
         heartbeat.scheduleAtFixedRate(registry::heartbeat, 10, 10, TimeUnit.SECONDS);
 
-        return new AccountsEngine(service, timings, subscriber, heartbeat, pool);
+        return new AccountsEngine(service, store, registry, timings, subscriber, heartbeat, pool);
     }
 
     /**
@@ -108,6 +113,16 @@ public final class AccountsEngine implements AutoCloseable {
     }
 
     /** Where a migration has got to: who still owes it, who has applied it. */
+    /** Which servers have heartbeated recently — the ones a transfer will actually reach. */
+    public java.util.Set<String> activeInstances() {
+        return registry.activeInstances();
+    }
+
+    /** Every transfer a name or an identity has been part of, newest first. */
+    public List<RedisMigrationStore.Transfer> history(String nameOrUuid) {
+        return store.history(nameOrUuid);
+    }
+
     /** How long transfers have been taking, and which modules and instances are the slow ones. */
     public RedisMigrationTimings.Snapshot timings() {
         return timings.snapshot();

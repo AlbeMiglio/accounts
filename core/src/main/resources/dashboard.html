@@ -120,183 +120,159 @@
   }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
-  /* ---- tabs, and the numbers behind the transfers ------------------------ */
-  nav { display: flex; gap: .3rem; margin: 1.4rem 0 0; }
-  nav button { font: inherit; font-size: .82rem; color: var(--muted); background: none; cursor: pointer;
-               border: 1px solid transparent; border-radius: 999px; padding: .32rem .85rem;
-               transition: color .16s ease, background .16s ease, border-color .16s ease; }
-  nav button:hover { color: var(--fg); }
-  nav button[aria-selected="true"] { color: var(--fg); background: var(--panel);
-                                     border-color: var(--line); box-shadow: var(--shadow); }
-  nav button:focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
-  section[hidden] { display: none; }
 
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-           gap: .8rem; margin-top: 1.6rem; }
+  /* ---- the one thing you came here with: a name ------------------------- */
+  form.find { margin: 1.8rem 0 0; position: relative; }
+  form.find input { width: 100%; font: inherit; font-size: 1.05rem; color: var(--fg);
+                    background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px;
+                    padding: .85rem 1.1rem .85rem 2.6rem; box-shadow: var(--shadow); }
+  form.find input::placeholder { color: var(--dim); }
+  form.find input:focus-visible { outline: 2px solid var(--go); outline-offset: -1px; }
+  form.find svg { position: absolute; left: .95rem; top: 50%; transform: translateY(-50%);
+                  width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 2; }
+  .hint { margin-top: .5rem; font-size: .78rem; color: var(--dim); }
+
   .card { border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
-          box-shadow: var(--shadow); padding: 1rem 1.1rem; }
-  .card .big { font-family: var(--mono); font-size: 1.65rem; letter-spacing: -.02em; margin-top: .35rem; }
-  .card .sub { font-size: .78rem; color: var(--dim); margin-top: .1rem; }
+          box-shadow: var(--shadow); margin-top: 1.1rem; overflow: hidden; }
+  .card > h2 { margin: 0; padding: .9rem 1.15rem; font-size: .9rem; font-weight: 600;
+               border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: .6rem; }
+  .card > h2 small { font-weight: 400; color: var(--dim); font-size: .76rem; }
+  .card .body { padding: 1.05rem 1.15rem 1.15rem; }
 
-  .panel { border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
-           box-shadow: var(--shadow); margin-top: 1.4rem; overflow: hidden; }
-  .panel > h2 { margin: 0; padding: .95rem 1.15rem; font-size: .9rem; font-weight: 600;
-                border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: .6rem; }
-  .panel > h2 small { font-weight: 400; color: var(--dim); font-size: .76rem; }
-  .bars { padding: .8rem 1.15rem 1.1rem; display: flex; flex-direction: column; gap: .5rem; }
-  .bar { display: grid; grid-template-columns: minmax(8rem, 15rem) 1fr auto; align-items: center;
-         gap: .75rem; font-size: .82rem; }
-  .bar .name { font-family: var(--mono); font-size: .76rem; overflow: hidden;
-               text-overflow: ellipsis; white-space: nowrap; }
-  /* Both are spans: without display:block an inline element ignores width and height, and every bar
-     comes out the same length — which is the one thing this panel exists not to do. */
-  .bar .track { display: block; height: 7px; border-radius: 999px; background: var(--panel-2);
-                border: 1px solid var(--line); overflow: hidden; }
-  .bar .fill { display: block; height: 100%; background: var(--go); border-radius: 999px;
-               transition: width .5s cubic-bezier(.2,.7,.3,1); }
-  .bar.slow .fill { background: var(--wait); }
-  .bar.worst .fill { background: var(--late); }
-  .bar .ms { font-family: var(--mono); font-size: .76rem; color: var(--muted);
-             min-width: 5.5rem; text-align: right; }
-  table { width: 100%; border-collapse: collapse; font-size: .84rem; }
-  th, td { text-align: left; padding: .55rem 1.15rem; border-bottom: 1px solid var(--line); }
-  th { font-family: var(--mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
-       color: var(--muted); font-weight: 400; }
-  tbody tr:last-child td { border-bottom: 0; }
-  td.num { font-family: var(--mono); text-align: right; }
-  .warn { color: var(--late); }
+  .who { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .who .name { font-size: 1.05rem; font-weight: 600; }
+  .ids { display: flex; flex-direction: column; gap: .3rem; margin-top: .9rem; }
+  .id { display: flex; align-items: center; gap: .6rem; font-family: var(--mono); font-size: .78rem; }
+  .id .tag { color: var(--muted); min-width: 4.6rem; }
+  .id .val { color: var(--fg); cursor: pointer; border-bottom: 1px dotted var(--line-2); }
+  .id .val:hover { border-bottom-color: var(--go); }
+  .id .missing { color: var(--dim); }
 
-  /* ---- the acting half --------------------------------------------------- */
-  .form { padding: 1.05rem 1.15rem 1.2rem; display: flex; flex-direction: column; gap: .75rem; }
-  .field { display: flex; flex-direction: column; gap: .3rem; }
-  .field input { font: inherit; font-family: var(--mono); font-size: .84rem; color: var(--fg);
-                 background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
-                 padding: .5rem .7rem; }
-  .field input:focus-visible { outline: 2px solid var(--go); outline-offset: -1px; }
-  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-  .btn { font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; align-self: flex-start;
-         color: var(--bg); background: var(--go); border: 0; border-radius: 999px; padding: .45rem 1.1rem;
+  .doing { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.05rem; align-items: center; }
+  .btn { font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; color: var(--bg);
+         background: var(--go); border: 0; border-radius: 999px; padding: .45rem 1.1rem;
          transition: filter .16s ease; }
   .btn:hover { filter: brightness(1.08); }
   .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
   .btn.ghost { background: var(--panel-2); color: var(--fg); border: 1px solid var(--line-2); }
+  .btn.small { font-size: .78rem; padding: .3rem .8rem; }
   .btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-  .resolved { display: none; gap: .55rem; align-items: center; flex-wrap: wrap;
-              font-family: var(--mono); font-size: .76rem; color: var(--muted); }
-  .resolved.on { display: flex; }
-  .resolved b { color: var(--fg); font-weight: 500; }
-  .outcome { font-family: var(--mono); font-size: .78rem; min-height: 1.2em; }
+  .outcome { font-family: var(--mono); font-size: .78rem; }
   .outcome.ok { color: var(--go); }
   .outcome.bad { color: var(--late); }
-  .locked { padding: 1.05rem 1.15rem 1.2rem; color: var(--muted); font-size: .88rem; }
-  .locked code { font-family: var(--mono); font-size: .82rem; color: var(--fg); }
+
+  .transfer { padding: .85rem 1.15rem; border-top: 1px solid var(--line); }
+  .transfer:first-child { border-top: 0; }
+  .transfer .when { font-family: var(--mono); font-size: .74rem; color: var(--muted); }
+  .transfer .pair { font-family: var(--mono); font-size: .76rem; margin-top: .25rem;
+                    overflow-wrap: anywhere; }
+  .chips { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .55rem; align-items: center; }
+  .chip { font-family: var(--mono); font-size: .7rem; border-radius: 999px; padding: .16rem .6rem;
+          border: 1px solid var(--line-2); color: var(--muted); }
+  .chip.ok { color: var(--go); border-color: color-mix(in srgb, var(--go) 45%, var(--line)); }
+  .chip.wait { color: var(--wait); border-color: color-mix(in srgb, var(--wait) 45%, var(--line)); }
+  .chip.bad { color: var(--late); border-color: color-mix(in srgb, var(--late) 50%, var(--line)); }
+
+  .servers { display: flex; flex-direction: column; }
+  .server { display: grid; grid-template-columns: 1fr auto auto; gap: .9rem; align-items: center;
+            padding: .55rem 1.15rem; border-top: 1px solid var(--line); font-size: .84rem; }
+  .server:first-child { border-top: 0; }
+  .server .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--go);
+                 display: inline-block; margin-right: .55rem; }
+  .server .dot.off { background: var(--dim); }
+  .server .n { font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+
+  details.more { margin-top: 1.4rem; }
+  details.more > summary { cursor: pointer; font-size: .82rem; color: var(--muted); padding: .3rem 0; }
+  details.more > summary:hover { color: var(--fg); }
+  .field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .7rem; }
+  .field input { font: inherit; font-family: var(--mono); font-size: .82rem; color: var(--fg);
+                 background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+                 padding: .45rem .7rem; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+  .bars { display: flex; flex-direction: column; gap: .45rem; }
+  .bar { display: grid; grid-template-columns: minmax(7rem, 13rem) 1fr auto; align-items: center;
+         gap: .7rem; font-size: .8rem; }
+  .bar .name { font-family: var(--mono); font-size: .74rem; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  .bar .track { display: block; height: 6px; border-radius: 999px; background: var(--panel-2);
+                border: 1px solid var(--line); overflow: hidden; }
+  .bar .fill { display: block; height: 100%; background: var(--go); border-radius: 999px; }
+  .bar.worst .fill { background: var(--late); }
+  .bar.slow .fill { background: var(--wait); }
+  .bar .ms { font-family: var(--mono); font-size: .74rem; color: var(--muted); text-align: right; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 <main>
   <header>
     <h1>accounts</h1>
     <span class="spacer"></span>
     <span class="stat"><span class="pulse" id="pulse"></span><span id="state">connecting</span></span>
-    <span class="stat" id="done-count"></span>
   </header>
-  <nav role="tablist">
-    <button role="tab" id="tab-transfers" aria-selected="true" aria-controls="view-transfers">Transfers</button>
-    <button role="tab" id="tab-analytics" aria-selected="false" aria-controls="view-analytics">Analytics</button>
-    <button role="tab" id="tab-move" aria-selected="false" aria-controls="view-move">Move an account</button>
-  </nav>
 
-  <section id="view-transfers" role="tabpanel" aria-labelledby="tab-transfers">
-    <div id="list"></div>
-  </section>
+  <form class="find" id="find" autocomplete="off">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" name="q" spellcheck="false" autofocus
+           placeholder="A player's name, or a uuid" aria-label="Find a player">
+  </form>
+  <div class="hint" id="hint">Whoever the ticket is about. Their name is enough.</div>
 
-  <section id="view-analytics" role="tabpanel" aria-labelledby="tab-analytics" hidden>
-    <div class="cards">
-      <div class="card"><span class="label">transfers</span><div class="big" id="a-count">—</div>
-        <div class="sub">applied across every server</div></div>
-      <div class="card"><span class="label">typical</span><div class="big" id="a-median">—</div>
-        <div class="sub">median server, one transfer</div></div>
-      <div class="card"><span class="label">slowest run</span><div class="big" id="a-max">—</div>
-        <div class="sub" id="a-max-where">—</div></div>
-    </div>
+  <div id="live"></div>
+  <div id="player"></div>
 
-    <div class="panel">
-      <h2>Where the time goes <small>average per module, slowest first</small></h2>
-      <div class="bars" id="a-modules"></div>
-    </div>
+  <div class="card" id="network-card">
+    <h2>The network <small id="net-note"></small></h2>
+    <div class="servers" id="servers"></div>
+  </div>
 
-    <div class="panel">
-      <h2>By server <small>a transfer is applied by every server at once, so the slowest one sets the pace</small></h2>
-      <table>
-        <thead><tr><th>server</th><th class="num">transfers</th><th class="num">average</th><th class="num">slowest</th></tr></thead>
-        <tbody id="a-instances"></tbody>
-      </table>
-    </div>
-  </section>
+  <details class="more">
+    <summary>Other things</summary>
 
-  <section id="view-move" role="tabpanel" aria-labelledby="tab-move" hidden>
-    <div class="panel" id="move-panel">
-      <h2>Move a player to their premium account <small>the usual one: cracked data follows them to Mojang</small></h2>
-      <div class="form">
-        <div class="field">
-          <label class="label" for="m-name">player name</label>
-          <input id="m-name" autocomplete="off" spellcheck="false" placeholder="Salefre7889">
-        </div>
-        <div class="resolved" id="m-resolved"></div>
-        <button class="btn" id="m-go" disabled>Move this account</button>
-        <div class="outcome" id="m-out"></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h2>Move one identity onto another <small>when you already know both — a recovered account, a second transfer</small></h2>
-      <div class="form">
-        <div class="pair">
+    <div class="card">
+      <h2>Move one identity onto another <small>when you already have both</small></h2>
+      <div class="body">
+        <div class="two">
           <div class="field"><label class="label" for="p-from">from</label>
-            <input id="p-from" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
+            <input id="p-from" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
           <div class="field"><label class="label" for="p-to">to</label>
-            <input id="p-to" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
+            <input id="p-to" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
         </div>
-        <div class="field"><label class="label" for="p-name">name (optional, for the log)</label>
-          <input id="p-name" autocomplete="off" spellcheck="false"></div>
         <button class="btn ghost" id="p-go">Move it</button>
         <div class="outcome" id="p-out"></div>
       </div>
     </div>
 
-    <div class="panel">
-      <h2>Carry a name change <small>same identity, new name — for every store still keyed by the old one</small></h2>
-      <div class="form">
-        <div class="field"><label class="label" for="r-uuid">identity</label>
-          <input id="r-uuid" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
-        <div class="pair">
-          <div class="field"><label class="label" for="r-old">old name</label>
-            <input id="r-old" autocomplete="off" spellcheck="false"></div>
-          <div class="field"><label class="label" for="r-new">new name</label>
-            <input id="r-new" autocomplete="off" spellcheck="false"></div>
-        </div>
-        <button class="btn ghost" id="r-go">Carry it</button>
-        <div class="outcome" id="r-out"></div>
-      </div>
+    <div class="card">
+      <h2>Where the time goes <small>average per module, slowest first</small></h2>
+      <div class="body"><div class="bars" id="a-modules"></div></div>
     </div>
-  </section>
+  </details>
 </main>
 <script>
   const token = new URLSearchParams(location.search).get('token') || '';
-  const list = document.getElementById('list');
-  const stateEl = document.getElementById('state');
-  const pulseEl = document.getElementById('pulse');
-  const doneEl = document.getElementById('done-count');
-
-  const seen = new Map();
-  let completed = 0;
-  const key = m => m.from + '>' + m.to;
+  const q = id => document.getElementById(id);
   const esc = s => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-  const since = ms => {
-    const s = Math.floor(ms / 1000);
-    return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + String(s % 60).padStart(2, '0') + 's';
+  const ms = v => v < 1000 ? Math.round(v) + ' ms'
+                : v < 60000 ? (v / 1000).toFixed(1) + ' s'
+                : Math.floor(v / 60000) + 'm ' + String(Math.round((v % 60000) / 1000)).padStart(2, '0') + 's';
+  const ago = at => {
+    if (!at) return 'at some point';
+    const s = Math.floor((Date.now() - at) / 1000);
+    if (s < 90) return 'just now';
+    if (s < 5400) return Math.round(s / 60) + ' minutes ago';
+    if (s < 172800) return Math.round(s / 3600) + ' hours ago';
+    return new Date(at).toISOString().slice(0, 10);
+  };
+  const api = async (path, opts) => {
+    const sep = path.indexOf('?') >= 0 ? '&' : '?';
+    const r = await fetch('api/' + path + sep + 'token=' + encodeURIComponent(token),
+                          Object.assign({cache: 'no-store'}, opts || {}));
+    if (!r.ok) throw new Error(r.status === 401 ? 'token rejected'
+                             : r.status === 403 ? 'this panel is read-only' : await r.text());
+    return r;
   };
 
-  /* An identity is a 32-hex string nobody can read. Draw it instead: same UUID always gives the same
-     mark and the same hue, so two rows for the same player are recognisably the same account. */
   function hash(str) {
     let h = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
@@ -321,280 +297,185 @@
               <g fill="${fill}">${cells}</g></svg>`;
   }
 
-  function render(m, node) {
-    const pending = m.waitingOn || [], applied = m.applied || [];
-    const cells = Array.from({length: m.expectedCount}, (_, i) =>
-      `<span class="cell ${i < m.appliedCount ? 'on' : 'off'}"></span>`).join('');
-    const chips = list => list.map(([n, state]) =>
-      `<span class="chip ${state}"><i class="dot"></i>${esc(n)}</span>`).join('');
-    node.innerHTML = `
-      <button class="head" aria-expanded="false">
-        <span class="glyphs">${glyph(m.from, 'from')}<span class="becomes">→</span>${glyph(m.to, 'to')}</span>
-        <span class="who">
-          <span class="name">${esc(m.username || 'unknown player')}</span>
-          <span class="sub">identity moved on <b>${m.appliedCount}</b> of <b>${m.expectedCount}</b> servers</span>
-        </span>
-        <span class="right"><span class="clock" data-clock></span><i class="chev"></i></span>
-      </button>
-      <div class="cells" style="grid-template-columns: repeat(${m.expectedCount}, 1fr)">${cells}</div>
-      <div class="detail"><div class="inner"><div class="pad">
-        <div class="field"><span class="label">previous identity</span>
-          <span class="val"><code>${esc(m.from)}</code><button class="copy" data-copy="${esc(m.from)}">copy</button></span></div>
-        <div class="field"><span class="label">new identity</span>
-          <span class="val"><code>${esc(m.to)}</code><button class="copy" data-copy="${esc(m.to)}">copy</button></span></div>
-        <div class="field"><span class="label">servers</span>
-          <span class="instances">${chips(applied.map(n => [n, '']).concat(pending.map(n => [n, 'pending'])))}</span></div>
-      </div></div></div>`;
-    const head = node.querySelector('.head');
-    head.addEventListener('click', () => {
-      const open = node.classList.toggle('open');
-      head.setAttribute('aria-expanded', String(open));
+
+  const mark = uuid => uuid ? glyph(uuid, 'glyph') : '';
+
+  /* ---- the player, which is the whole point ------------------------------ */
+  let current = null;
+
+  async function look(query) {
+    const box = q('player');
+    if (!query) { box.innerHTML = ''; current = null; return; }
+    box.innerHTML = '<div class="card"><div class="body"><span class="label">looking…</span></div></div>';
+    let d;
+    try { d = await (await api('player?q=' + encodeURIComponent(query))).json(); }
+    catch (e) { box.innerHTML = '<div class="card"><div class="body"><span class="outcome bad">' +
+                                 esc(e.message) + '</span></div></div>'; return; }
+    current = d;
+    box.innerHTML = card(d);
+    wire(d);
+  }
+
+  function card(d) {
+    const ids = [];
+    if (d.offline) ids.push(row('cracked', d.offline));
+    if (d.premium) ids.push(row('premium', d.premium));
+    else if (d.name) ids.push('<div class="id"><span class="tag">premium</span>' +
+                              '<span class="missing">Mojang has no account by that name</span></div>');
+    if (d.uuid) ids.push(row('identity', d.uuid));
+
+    const transfers = (d.transfers || []);
+    const canMove = d.actions && d.offline && d.premium;
+    const head = '<div class="who">' + mark(d.offline || d.uuid) +
+      (d.premium ? '<span style="color:var(--muted)">→</span>' + mark(d.premium) : '') +
+      '<span class="name">' + esc(d.name || d.uuid) + '</span></div>';
+
+    let doing = '<div class="doing">';
+    if (canMove) {
+      doing += '<button class="btn" id="go-move">Move them to premium</button>';
+    } else if (d.name && !d.premium) {
+      doing += '<span class="label">nothing to move them to</span>';
+    } else if (!d.actions) {
+      doing += '<span class="label">read-only panel</span>';
+    }
+    doing += '<span class="outcome" id="go-out"></span></div>';
+
+    const history = transfers.length
+      ? transfers.map(t => transferRow(t, d.actions)).join('')
+      : '<div class="transfer"><span class="label">no transfer on record</span>' +
+        '<div class="pair" style="color:var(--dim)">Nothing has ever moved this account. ' +
+        'If they say they lost something, it never happened — not that it went wrong.</div></div>';
+
+    return '<div class="card"><div class="body">' + head +
+             '<div class="ids">' + ids.join('') + '</div>' + doing + '</div></div>' +
+           '<div class="card"><h2>Transfers <small>' +
+             (transfers.length ? transfers.length + ' on record' : 'none yet') +
+           '</small></h2>' + history + '</div>';
+  }
+
+  const row = (tag, value) =>
+    '<div class="id"><span class="tag">' + tag + '</span>' +
+    '<span class="val" data-copy="' + esc(value) + '" title="click to copy">' + esc(value) + '</span></div>';
+
+  function transferRow(t, actions) {
+    const chips = [];
+    const failed = new Set(t.failed || []);
+    for (const s of t.applied || []) chips.push('<span class="chip ok">' + esc(s) + '</span>');
+    // A server that failed is not also waiting: it tried, and it is why this one is not finished.
+    for (const s of t.waitingOn || []) if (!failed.has(s)) chips.push('<span class="chip wait">' + esc(s) + ' waiting</span>');
+    for (const s of failed) chips.push('<span class="chip bad">' + esc(s) + ' failed</span>');
+    const retry = (!t.complete && actions)
+      ? '<button class="btn ghost small" data-retry="' + esc(t.from) + '|' + esc(t.to) + '|' +
+        esc(t.username || '') + '">Send it again</button>' : '';
+    // A transfer still on the wire has no start recorded yet; saying "at some point" about something
+    // happening right now reads as a fault.
+    const when = t.startedAt ? esc(ago(t.startedAt)) + (t.complete ? ' · done everywhere' : ' · not finished')
+                             : 'moving now';
+    return '<div class="transfer"><div class="when">' + when + '</div>' +
+      '<div class="pair">' + esc(t.from) + ' → ' + esc(t.to) + '</div>' +
+      '<div class="chips">' + (chips.join('') || '<span class="label">no server has answered</span>') +
+      retry + '</div></div>';
+  }
+
+  function wire(d) {
+    for (const el of document.querySelectorAll('[data-copy]')) {
+      el.addEventListener('click', () => navigator.clipboard && navigator.clipboard.writeText(el.dataset.copy));
+    }
+    const move = q('go-move');
+    if (move) move.addEventListener('click', () => {
+      if (!confirm('Move ' + (d.name || '') + '\n\nfrom ' + d.offline + '\nto ' + d.premium +
+                   '\n\nEvery server applies this. Back up first.')) return;
+      act({from: d.offline, to: d.premium, username: d.name || ''}, q('go-out'));
     });
-    node.querySelectorAll('.copy').forEach(btn => btn.addEventListener('click', event => {
-      event.stopPropagation();
-      navigator.clipboard?.writeText(btn.dataset.copy);
-      btn.textContent = 'copied'; btn.classList.add('ok');
-      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('ok'); }, 1400);
-    }));
-  }
-
-  function tickClocks() {
-    const now = Date.now();
-    for (const [, entry] of seen) {
-      const clock = entry.node.querySelector('[data-clock]');
-      if (!clock) continue;
-      const age = now - entry.firstSeen;
-      clock.textContent = since(age);
-      entry.node.classList.toggle('late', age > 45000 && !entry.node.classList.contains('done'));
+    for (const el of document.querySelectorAll('[data-retry]')) {
+      el.addEventListener('click', () => {
+        const [from, to, username] = el.dataset.retry.split('|');
+        act({from: from, to: to, username: username}, q('go-out'));
+      });
     }
   }
 
-  function retire(entry, k) {
-    entry.node.classList.add('done');
-    entry.node.querySelectorAll('.cell').forEach(c => { c.className = 'cell on'; });
-    const total = entry.data.expectedCount;
-    const sub = entry.node.querySelector('.sub');
-    if (sub) sub.innerHTML = `identity moved on <b>${total}</b> of <b>${total}</b> servers`;
-    const clock = entry.node.querySelector('[data-clock]');
-    if (clock) clock.textContent = 'done';
-    seen.delete(k);
-    doneEl.textContent = ++completed + ' completed';
-    setTimeout(() => {
-      entry.node.classList.add('leaving');
-      setTimeout(() => entry.node.remove(), 560);
-    }, 1700);
-  }
-
-  async function poll() {
-    try {
-      const r = await fetch('api/migrations?token=' + encodeURIComponent(token), {cache: 'no-store'});
-      if (!r.ok) throw new Error(r.status === 401 ? 'token rejected' : 'HTTP ' + r.status);
-      const rows = (await r.json()).inFlight || [];
-      pulseEl.classList.remove('off');
-      stateEl.textContent = rows.length ? rows.length + (rows.length > 1 ? ' open' : ' open') : 'idle';
-
-      const live = new Set();
-      for (const m of rows) {
-        const k = key(m); live.add(k);
-        let entry = seen.get(k);
-        if (!entry) {
-          const node = document.createElement('div');
-          node.className = 'row';
-          list.prepend(node);
-          entry = {firstSeen: Date.now(), node, data: null};
-          seen.set(k, entry);
-        }
-        if (JSON.stringify(entry.data) !== JSON.stringify(m)) {
-          const wasOpen = entry.node.classList.contains('open');
-          entry.data = m;
-          render(m, entry.node);
-          if (wasOpen) {
-            entry.node.classList.add('open');
-            entry.node.querySelector('.head').setAttribute('aria-expanded', 'true');
-          }
-        }
-      }
-      for (const [k, entry] of Array.from(seen)) if (!live.has(k)) retire(entry, k);
-
-      const hasRows = list.querySelector('.row');
-      const empty = list.querySelector('.empty');
-      if (!hasRows && !empty) {
-        list.insertAdjacentHTML('beforeend',
-          '<div class="empty"><span class="label">nothing in transit</span>' +
-          'Every migration on record has been applied by every server.</div>');
-      } else if (hasRows && empty) {
-        empty.remove();
-      }
-    } catch (e) {
-      pulseEl.classList.add('off');
-      stateEl.innerHTML = '<span class="err">' + esc(e.message) + '</span>';
-    }
-  }
-
-  /* ---- tabs -------------------------------------------------------------- */
-  const tabs = [['tab-transfers', 'view-transfers'], ['tab-analytics', 'view-analytics'],
-                ['tab-move', 'view-move']];
-  for (const [tabId, viewId] of tabs) {
-    document.getElementById(tabId).addEventListener('click', () => {
-      for (const [t, v] of tabs) {
-        const on = t === tabId;
-        document.getElementById(t).setAttribute('aria-selected', String(on));
-        document.getElementById(v).hidden = !on;
-      }
-      if (viewId === 'view-analytics') loadAnalytics();
-      if (viewId === 'view-move') checkActions();
-    });
-  }
-
-  /* ---- analytics --------------------------------------------------------- */
-  const ms = v => v < 1000 ? Math.round(v) + ' ms'
-                : v < 60000 ? (v / 1000).toFixed(1) + ' s'
-                : Math.floor(v / 60000) + 'm ' + String(Math.round((v % 60000) / 1000)).padStart(2, '0') + 's';
-
-  function median(values) {
-    if (!values.length) return 0;
-    const s = [...values].sort((a, b) => a - b);
-    return s[Math.floor(s.length / 2)];
-  }
-
-  async function loadAnalytics() {
-    let data;
-    try {
-      const r = await fetch('api/analytics?token=' + encodeURIComponent(token), {cache: 'no-store'});
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      data = await r.json();
-    } catch (e) {
-      document.getElementById('a-modules').innerHTML =
-        '<span class="label err">' + esc(e.message) + '</span>';
-      return;
-    }
-    const instances = (data.instances || []).sort((a, b) => b.average - a.average);
-    const modules = (data.modules || []).sort((a, b) => b.average - a.average);
-
-    /* One transfer is applied by every server, so summing the per-server counts would report a single
-       player four times. Count the transfers themselves; fall back to the busiest server when the
-       recent list has already rolled past them. */
-    const distinct = new Set((data.recent || []).map(r => r.migration)).size;
-    const transfers = distinct || instances.reduce((n, i) => Math.max(n, i.runs), 0);
-    document.getElementById('a-count').textContent = transfers || '—';
-    document.getElementById('a-median').textContent =
-      instances.length ? ms(median(instances.map(i => i.average))) : '—';
-    const worst = instances.reduce((w, i) => (!w || i.max > w.max ? i : w), null);
-    document.getElementById('a-max').textContent = worst ? ms(worst.max) : '—';
-    document.getElementById('a-max-where').textContent = worst ? worst.name : 'nothing recorded yet';
-
-    const top = modules.slice(0, 12);
-    const peak = top.length ? top[0].average : 1;
-    document.getElementById('a-modules').innerHTML = top.length ? top.map((m, i) => {
-      const width = Math.max(1, Math.round(100 * m.average / (peak || 1)));
-      const cls = i === 0 ? 'worst' : (m.average > peak / 3 ? 'slow' : '');
-      const fails = m.failures ? ' <span class="warn">· ' + m.failures + ' failed</span>' : '';
-      return '<div class="bar ' + cls + '"><span class="name" title="' + esc(m.name) + '">' + esc(m.name) +
-        '</span><span class="track"><span class="fill" style="width:' + width + '%"></span></span>' +
-        '<span class="ms">' + ms(m.average) + fails + '</span></div>';
-    }).join('') : '<span class="label">no transfer has been measured yet</span>';
-
-    document.getElementById('a-instances').innerHTML = instances.length ? instances.map(i =>
-      '<tr><td>' + esc(i.name) + '</td><td class="num">' + i.runs + '</td><td class="num">' +
-      ms(i.average) + '</td><td class="num">' + ms(i.max) + '</td></tr>').join('')
-      : '<tr><td colspan="4"><span class="label">no transfer has been measured yet</span></td></tr>';
-  }
-
-  /* ---- moving an account ------------------------------------------------- */
-  const q = id => document.getElementById(id);
-  let actionsOn = null;
-
-  async function resolve(name) {
-    const r = await fetch('api/resolve?token=' + encodeURIComponent(token) +
-                          (name ? '&name=' + encodeURIComponent(name) : ''), {cache: 'no-store'});
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  }
-
-  async function checkActions() {
-    if (actionsOn !== null) return;
-    try { actionsOn = (await resolve('')).actions; } catch (e) { actionsOn = false; }
-    if (actionsOn) return;
-    for (const panel of document.querySelectorAll('#view-move .panel')) {
-      panel.querySelector('.form').outerHTML =
-        '<div class="locked">This panel is read-only. Set <code>dashboard.actions: true</code> in the ' +
-        'proxy config to let it move data — with it on, anyone holding a panel link can move an ' +
-        'account, not just look at one.</div>';
-    }
-  }
-
-  async function post(path, fields, outEl) {
+  async function act(fields, outEl) {
     outEl.className = 'outcome';
     outEl.textContent = 'working…';
     try {
-      const r = await fetch('api/actions/' + path + '?token=' + encodeURIComponent(token), {
+      const r = await api('actions/migrate', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: new URLSearchParams(fields).toString()
       });
-      const text = await r.text();
-      outEl.className = 'outcome ' + (r.ok ? 'ok' : 'bad');
-      outEl.textContent = text;
-      if (r.ok) poll();
+      outEl.className = 'outcome ok';
+      outEl.textContent = await r.text();
+      setTimeout(() => look(q('q').value.trim()), 1200);
     } catch (e) {
       outEl.className = 'outcome bad';
       outEl.textContent = e.message;
     }
   }
 
-  let resolveTimer = null;
-  q('m-name').addEventListener('input', () => {
-    clearTimeout(resolveTimer);
-    const name = q('m-name').value.trim();
-    const box = q('m-resolved');
-    q('m-go').disabled = true;
-    if (!name) { box.classList.remove('on'); return; }
-    resolveTimer = setTimeout(async () => {
-      try {
-        const d = await resolve(name);
-        if (d.premium) {
-          box.innerHTML = '<span>cracked <b>' + esc(d.offline) + '</b></span><span>→</span>' +
-                          '<span>premium <b>' + esc(d.premium) + '</b></span>';
-          q('m-go').disabled = false;
-        } else {
-          box.innerHTML = '<span class="warn">Mojang has no account by that name — ' +
-                          'nothing to move them to.</span>';
-        }
-        box.classList.add('on');
-      } catch (e) { box.classList.remove('on'); }
-    }, 350);
-  });
+  /* ---- the glance: what is moving, and whether the network is all here ---- */
+  async function refresh() {
+    let live = [], stats = null;
+    try {
+      live = (await (await api('migrations')).json()).inFlight || [];
+      q('pulse').classList.remove('off');
+      q('state').textContent = live.length ? live.length + ' moving' : 'idle';
+    } catch (e) {
+      q('pulse').classList.add('off');
+      q('state').innerHTML = '<span class="outcome bad">' + esc(e.message) + '</span>';
+      return;
+    }
+    q('live').innerHTML = live.length ? '<div class="card"><h2>Moving right now</h2>' +
+      live.map(m => transferRow({from: m.from, to: m.to, username: m.username,
+                                 applied: m.applied, waitingOn: m.waitingOn, failed: [],
+                                 complete: false, startedAt: 0}, false)).join('') + '</div>' : '';
 
-  q('m-go').addEventListener('click', async () => {
-    const name = q('m-name').value.trim();
-    const d = await resolve(name);
-    if (!d.premium) return;
-    if (!confirm('Move ' + name + '\n\nfrom ' + d.offline + '\nto ' + d.premium +
-                 '\n\nEvery server applies this. Back up first.')) return;
-    post('migrate', {from: d.offline, to: d.premium, username: name}, q('m-out'));
+    try { stats = await (await api('analytics')).json(); } catch (e) { return; }
+    const active = new Set(stats.active || []);
+    const known = (stats.instances || []).slice().sort((a, b) => b.average - a.average);
+    const names = new Set([...active, ...known.map(i => i.name)]);
+    q('servers').innerHTML = [...names].map(n => {
+      const i = known.find(k => k.name === n);
+      return '<div class="server"><span><span class="dot' + (active.has(n) ? '' : ' off') + '"></span>' +
+        esc(n) + '</span><span class="n">' + (i ? i.runs + ' transfers' : 'no transfer yet') +
+        '</span><span class="n">' + (i ? ms(i.average) : '—') + '</span></div>';
+    }).join('') || '<div class="server"><span class="label">no server has checked in</span></div>';
+    const typical = known.length ? ms(Math.max(...known.map(i => i.average))) : null;
+    q('net-note').textContent = active.size + ' of ' + names.size + ' here' +
+      (typical ? ' · a transfer takes about ' + typical : '');
+
+    const mods = (stats.modules || []).sort((a, b) => b.average - a.average).slice(0, 10);
+    const peak = mods.length ? mods[0].average : 1;
+    q('a-modules').innerHTML = mods.map((m, idx) =>
+      '<div class="bar ' + (idx === 0 ? 'worst' : m.average > peak / 3 ? 'slow' : '') + '">' +
+      '<span class="name" title="' + esc(m.name) + '">' + esc(m.name) + '</span>' +
+      '<span class="track"><span class="fill" style="width:' +
+      Math.max(1, Math.round(100 * m.average / (peak || 1))) + '%"></span></span>' +
+      '<span class="ms">' + ms(m.average) + '</span></div>').join('') ||
+      '<span class="label">no transfer has been measured yet</span>';
+  }
+
+  let typing = null;
+  q('q').addEventListener('input', () => {
+    clearTimeout(typing);
+    const value = q('q').value.trim();
+    typing = setTimeout(() => look(value), 350);
   });
+  q('find').addEventListener('submit', e => { e.preventDefault(); look(q('q').value.trim()); });
 
   q('p-go').addEventListener('click', () => {
     const from = q('p-from').value.trim(), to = q('p-to').value.trim();
     if (!from || !to) { q('p-out').className = 'outcome bad'; q('p-out').textContent = 'both are required'; return; }
-    if (!confirm('Move\n\n' + from + '\nto ' + to + '\n\nEvery server applies this. Back up first.')) return;
-    post('migrate', {from: from, to: to, username: q('p-name').value.trim()}, q('p-out'));
-  });
-
-  q('r-go').addEventListener('click', () => {
-    post('rename', {uuid: q('r-uuid').value.trim(), old: q('r-old').value.trim(),
-                    new: q('r-new').value.trim()}, q('r-out'));
+    if (!confirm('Move\n\n' + from + '\nto ' + to + '\n\nEvery server applies this.')) return;
+    act({from: from, to: to, username: ''}, q('p-out'));
   });
 
   if (window.matchMedia('(prefers-color-scheme: light)').matches) {
     document.documentElement.dataset.light = '1';
   }
-  poll();
-  setInterval(poll, 2000);
-  setInterval(tickClocks, 1000);
-  // A background tab has its timers throttled to a crawl, so coming back to the panel would show a
-  // frozen picture for a moment. Catch up the instant it is looked at again.
+  refresh();
+  setInterval(refresh, 4000);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { poll(); tickClocks(); }
+    if (document.visibilityState === 'visible') refresh();
   });
 </script>

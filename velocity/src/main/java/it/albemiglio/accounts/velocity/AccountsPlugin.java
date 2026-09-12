@@ -77,7 +77,7 @@ public class AccountsPlugin implements MigrationService {
                 boolean allowActions = Boolean.TRUE.equals(dashboardConfig.get("actions"));
                 this.dashboard = MigrationDashboard.start(bind, dashboardPort,
                         (String) dashboardConfig.getOrDefault("token", ""), engine::inFlight, engine::timings,
-                        allowActions ? new EngineActions(engine) : DashboardActions.NONE);
+                        new EngineActions(engine, allowActions));
                 if (allowActions) {
                     logger.warn("Dashboard actions are ON: anyone holding a panel token can move player "
                             + "data, not just read it.");

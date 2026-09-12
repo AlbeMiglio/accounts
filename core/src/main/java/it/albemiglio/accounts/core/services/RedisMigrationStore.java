@@ -24,6 +24,10 @@ public final class RedisMigrationStore implements MigrationStore {
     private static final String APPLIED = "accounts:applied:";
     private static final String EXPECTED = "accounts:expected:";
     private static final String FAILED = "accounts:failed:";
+    /** Indexes so a transfer can be found by the thing an operator actually has: a name, or an identity. */
+    private static final String BY_UUID = "accounts:history:uuid:";
+    private static final String BY_NAME = "accounts:history:name:";
+    private static final String STARTED = "accounts:history:started";
 
     private final JedisPool pool;
 
@@ -34,7 +38,65 @@ public final class RedisMigrationStore implements MigrationStore {
     @Override
     public void record(Task task) {
         try (Jedis jedis = pool.getResource()) {
-            jedis.hset(MIGRATIONS, InstanceMigrator.migrationId(task), task.toString());
+            String id = InstanceMigrator.migrationId(task);
+            jedis.hset(MIGRATIONS, id, task.toString());
+            // A ticket arrives with a name, not a uuid pair. Index both ends and the name, so the one
+            // question anybody actually asks — "did this player's transfer happen?" — is a lookup.
+            jedis.sadd(BY_UUID + task.getMigration().getLeft(), id);
+            jedis.sadd(BY_UUID + task.getMigration().getRight(), id);
+            String username = task.getUsername();
+            if (username != null && !username.trim().isEmpty()) {
+                jedis.sadd(BY_NAME + username.toLowerCase(java.util.Locale.ROOT), id);
+            }
+            jedis.hsetnx(STARTED, id, String.valueOf(System.currentTimeMillis()));
+        }
+    }
+
+    /** Every transfer this name or identity has been part of, newest first. */
+    public List<Transfer> history(String nameOrUuid) {
+        try (Jedis jedis = pool.getResource()) {
+            java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+            ids.addAll(jedis.smembers(BY_UUID + nameOrUuid));
+            ids.addAll(jedis.smembers(BY_NAME + nameOrUuid.toLowerCase(java.util.Locale.ROOT)));
+            List<Transfer> out = new ArrayList<>();
+            for (String id : ids) {
+                String raw = jedis.hget(MIGRATIONS, id);
+                if (raw == null) {
+                    continue;
+                }
+                Task task = Task.fromString(raw);
+                Transfer transfer = new Transfer();
+                transfer.id = id;
+                transfer.from = String.valueOf(task.getMigration().getLeft());
+                transfer.to = String.valueOf(task.getMigration().getRight());
+                transfer.username = task.getUsername();
+                String at = jedis.hget(STARTED, id);
+                transfer.startedAt = at == null ? 0L : Long.parseLong(at);
+                transfer.applied.addAll(jedis.smembers(APPLIED + id));
+                transfer.expected.addAll(jedis.smembers(EXPECTED + id));
+                transfer.failed.addAll(jedis.smembers(FAILED + id));
+                out.add(transfer);
+            }
+            out.sort((a, b) -> Long.compare(b.startedAt, a.startedAt));
+            return out;
+        } catch (RuntimeException e) {
+            return new ArrayList<>();
+        }
+    }
+
+    /** One transfer as the panel shows it: who, when, and which servers are done with it. */
+    public static final class Transfer {
+        public String id;
+        public String from;
+        public String to;
+        public String username;
+        public long startedAt;
+        public final java.util.Set<String> applied = new java.util.LinkedHashSet<>();
+        public final java.util.Set<String> expected = new java.util.LinkedHashSet<>();
+        public final java.util.Set<String> failed = new java.util.LinkedHashSet<>();
+
+        public boolean complete() {
+            return !expected.isEmpty() && applied.containsAll(expected);
         }
     }
 

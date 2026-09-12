@@ -1,5 +1,7 @@
 package it.albemiglio.accounts.core.dashboard;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,6 +33,16 @@ public interface DashboardActions {
         public Optional<UUID> premiumUuid(String username) {
             return Optional.empty();
         }
+
+        @Override
+        public List<it.albemiglio.accounts.core.services.RedisMigrationStore.Transfer> history(String who) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public java.util.Set<String> activeInstances() {
+            return Collections.emptySet();
+        }
     };
 
     boolean enabled();
@@ -43,4 +55,13 @@ public interface DashboardActions {
 
     /** The Mojang identity behind a name, if the name is a premium account. */
     Optional<UUID> premiumUuid(String username);
+
+    /**
+     * Every transfer this name or identity has been part of. A read, unlike the rest of this
+     * interface — it is here because the panel asks all of it about the same player at once.
+     */
+    List<it.albemiglio.accounts.core.services.RedisMigrationStore.Transfer> history(String nameOrUuid);
+
+    /** Which servers have heartbeated recently — the ones a transfer will actually reach. */
+    java.util.Set<String> activeInstances();
 }

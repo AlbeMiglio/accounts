@@ -1,10 +1,8 @@
-# ItemJoin (RockinChaos/ItemJoin) on its default backend, SQLite — verified against decompiled ChaosCore
-# (the shaded SQL layer) AND the live production database.db. File plugins/ItemJoin/database.db
-# (Controller.java:78-79, dataFolder="database"); MySQL:false => SQLite (config.yml:35); prefix ij_
-# (PluginData.java:378). Nine ij_* player tables share the column Player_UUID (dashed UUID.toString(),
-# PlayerHandler.java:345); the non-player ij_map_ids table has no Player_UUID and is left out. Usually
-# empty in practice (rows only for first-join tracking, region return-items, cooldowns). For the MySQL
-# backend swap the database block (keys per config.yml:36-41); same table/column names. Run stopped.
+# ItemJoin (RockinChaos). SQLite at plugins/ItemJoin/database.db; every table keyed by a player uses
+# the same `Player_UUID` column (backtick-quoted VARCHAR in the CREATE TABLE, dashed value). Covers the
+# first-join and first-world markers, the per-world enable flags, the ip limits, the cooldowns and the
+# three return-item stores that hold a player's items back. ij_map_ids is keyed by map image, not by
+# player. Run with the server stopped.
 name: itemjoin
 platform: SPIGOT
 type: sql
@@ -25,9 +23,9 @@ replacers:
     column: Player_UUID
   - table: ij_return_items
     column: Player_UUID
-  - table: ij_return_switch_items
-    column: Player_UUID
   - table: ij_return_craftitems
+    column: Player_UUID
+  - table: ij_return_switch_items
     column: Player_UUID
   - table: ij_on_cooldown
     column: Player_UUID

@@ -1,0 +1,17 @@
+# VirtualVaults. One row per vault in H2 at plugins/VirtualVaults/virtualvaults: VV_VAULTS.OWNER_ID is
+# the owner, read together with OWNER_TYPE (PLAYER or COMPANY) — an exact-value swap only ever matches
+# the player. VV_CATEGORIES, VV_STORAGE and VV_REGIONS hang off the vault id, not off a player.
+# Unlike most plugins here this one does keep the default "sa" user. Run with the server stopped.
+name: virtualvaults
+platform: SPIGOT
+type: sql
+enabled: true
+database:
+  type: h2
+  database: plugins/VirtualVaults/virtualvaults
+  h2-version: "2.3.232"
+  username: sa
+  password: ""
+replacers:
+  - table: VV_VAULTS
+    column: OWNER_ID

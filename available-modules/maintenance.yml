@@ -1,0 +1,11 @@
+# Maintenance (kennytv/Maintenance) on a proxy. The whitelist of players allowed in while maintenance
+# is on lives in plugins/maintenance/config.yml as dashed uuid keys with the player's name beside them
+# — lose it in a migration and the player is locked out of their own maintenance window. The content
+# module's exact-token swap covers the key. Run with the proxy stopped: the file is rewritten whenever
+# the list changes. Use the SPIGOT variant of this path for the Bukkit build of the plugin.
+name: maintenance
+platform: VELOCITY
+type: content
+enabled: true
+targets:
+  - directory: plugins/maintenance/config.yml

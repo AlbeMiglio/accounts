@@ -1,0 +1,9 @@
+# Vanilla statistics: <world>/stats/<uuid>.json, one file per player, named by uuid. Only the main
+# world carries them on a normal server, but a Multiverse setup can have several. Copy once per world
+# that has a stats folder. Run with the server stopped.
+name: world-stats
+platform: SPIGOT
+type: file
+directory: world/stats
+extension: json
+enabled: true

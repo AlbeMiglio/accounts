@@ -1,0 +1,39 @@
+# Kingdoms (CryptoMorin/KingdomsX). Default backend is H2 under plugins/Kingdoms/data (config.yml ->
+# database.method, with use-data-folder: true). Confirmed against a live 1.17 install: the table prefix
+# comes from database.table-prefix (default "kingdoms"), so the tables are KINGDOMS_PLAYERS,
+# KINGDOMS_KINGDOMS, KINGDOMS_LANDS, KINGDOMS_MAILS, KINGDOMS_NATIONS.
+#
+# KINGDOMS_PLAYERS.ID is declared as H2's native UUID type, not a string — a dashed string still binds
+# against it (verified), which is what the dashed format sends. The database was created with no user,
+# so there is no "sa" to log in as.
+#
+# NOT covered: KINGDOMS_KINGDOMS.MEMBERS and KINGDOMS_MAILS.RECIPIENTS are serialized collections, and
+# KINGDOMS_PLAYERS.CLAIMS/INVITES likewise — a column swap cannot reach inside them. A kingdom whose
+# member list still names the old uuid keeps that member listed under an identity nobody logs in with.
+# Run with the server stopped: Kingdoms caches everything in memory and auto-saves every 30 minutes.
+name: kingdoms
+platform: SPIGOT
+type: sql
+enabled: true
+database:
+  type: h2
+  database: plugins/Kingdoms/data/data
+  h2-version: "2.3.232"
+  username: ""
+  password: ""
+# database:
+#   type: mysql            # database.method: MySQL / MariaDB — then the prefix applies the same way
+#   host: localhost
+#   port: 3306
+#   username: root
+#   password: secret
+#   database: minecraft
+replacers:
+  - table: KINGDOMS_PLAYERS
+    column: ID
+  - table: KINGDOMS_KINGDOMS
+    column: KING
+  - table: KINGDOMS_LANDS
+    column: CLAIMEDBY
+  - table: KINGDOMS_MAILS
+    column: SENDER

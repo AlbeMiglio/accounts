@@ -1,0 +1,9 @@
+# The backup copy Minecraft writes beside every player file: <world>/playerdata/<uuid>.dat_old. Left
+# behind, it is what a rollback restores — under the uuid the player no longer has. Same directory as
+# world-playerdata.yml, different extension, so it needs its own module. Copy once per world.
+name: world-playerdata-old
+platform: SPIGOT
+type: file
+directory: world/playerdata
+extension: dat_old
+enabled: true

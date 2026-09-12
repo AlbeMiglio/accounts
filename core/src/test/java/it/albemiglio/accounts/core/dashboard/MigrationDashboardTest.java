@@ -1,6 +1,7 @@
 package it.albemiglio.accounts.core.dashboard;
 
 import it.albemiglio.accounts.api.MigrationStatus;
+import it.albemiglio.accounts.core.services.RedisMigrationTimings;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -15,6 +16,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -75,8 +77,64 @@ class MigrationDashboardTest {
 
             assertEquals(200, response.status);
             // Anchored on the page's identity, not its wording: the copy is free to change.
-            assertTrue(response.body.contains("<title>accounts — migrations</title>"), response.body);
+            assertTrue(response.body.contains("<title>accounts</title>"), response.body);
         }
+    }
+
+    @Test
+    void aMintedLinkOpensThePanelAndTheStandingSecretStaysOutOfIt() throws IOException {
+        try (MigrationDashboard dashboard = MigrationDashboard.start("127.0.0.1", 0, "s3cret",
+                MigrationDashboardTest::oneStuck)) {
+            String link = dashboard.mintLink(30);
+
+            assertNotEquals("s3cret", link);
+            assertEquals(200, get(dashboard.port(), "/?token=" + link, null).status);
+            assertEquals(401, get(dashboard.port(), "/?token=" + link + "x", null).status);
+        }
+    }
+
+    @Test
+    void anExpiredLinkStopsWorking() throws IOException {
+        try (MigrationDashboard dashboard = MigrationDashboard.start("127.0.0.1", 0, "s3cret",
+                MigrationDashboardTest::oneStuck)) {
+            String link = dashboard.mintLink(0);   // already past its window
+
+            assertEquals(401, get(dashboard.port(), "/?token=" + link, null).status);
+        }
+    }
+
+    @Test
+    void reportsTheAveragePerModuleAndPerInstance() {
+        RedisMigrationTimings.Snapshot snapshot = new RedisMigrationTimings.Snapshot();
+        snapshot.modules.put("world-eris", fields("runs", "4", "millis", "40000", "max", "29000", "failures", "1"));
+        snapshot.instances.put("kingdoms", fields("runs", "2", "millis", "60000", "max", "35000"));
+        snapshot.recent.add("a>b\tkingdoms\t35000\t84\t1757700000000");
+
+        String json = new String(MigrationDashboard.analytics(snapshot), StandardCharsets.UTF_8);
+
+        assertTrue(json.contains("\"name\":\"world-eris\""), json);
+        assertTrue(json.contains("\"average\":10000"), json);   // 40000 / 4 runs
+        assertTrue(json.contains("\"failures\":1"), json);
+        assertTrue(json.contains("\"average\":30000"), json);   // 60000 / 2 runs
+        assertTrue(json.contains("\"modules\":84"), json);
+    }
+
+    /** A module with no run recorded is not an average of zero — it is left out entirely. */
+    @Test
+    void aModuleThatNeverRanIsNotReported() {
+        RedisMigrationTimings.Snapshot snapshot = new RedisMigrationTimings.Snapshot();
+        snapshot.modules.put("never", fields("runs", "0", "millis", "0"));
+
+        assertTrue(new String(MigrationDashboard.analytics(snapshot), StandardCharsets.UTF_8)
+                .contains("\"modules\":[]"));
+    }
+
+    private static java.util.Map<String, String> fields(String... pairs) {
+        java.util.Map<String, String> map = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < pairs.length; i += 2) {
+            map.put(pairs[i], pairs[i + 1]);
+        }
+        return map;
     }
 
     private static final class Response {

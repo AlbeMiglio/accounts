@@ -22,11 +22,25 @@ public final class InstanceMigrator {
     private final String instanceId;
     private final Collection<Module> modules;
     private final MigrationLog log;
+    private final MigrationTimings timings;
+    private final MigrationProgress progress;
 
     public InstanceMigrator(String instanceId, Collection<Module> modules, MigrationLog log) {
+        this(instanceId, modules, log, MigrationTimings.NONE, MigrationProgress.NONE);
+    }
+
+    public InstanceMigrator(String instanceId, Collection<Module> modules, MigrationLog log,
+                            MigrationTimings timings) {
+        this(instanceId, modules, log, timings, MigrationProgress.NONE);
+    }
+
+    public InstanceMigrator(String instanceId, Collection<Module> modules, MigrationLog log,
+                            MigrationTimings timings, MigrationProgress progress) {
         this.instanceId = instanceId;
         this.modules = modules;
         this.log = log;
+        this.timings = timings == null ? MigrationTimings.NONE : timings;
+        this.progress = progress == null ? MigrationProgress.NONE : progress;
     }
 
     public void apply(Task task) {
@@ -35,13 +49,25 @@ public final class InstanceMigrator {
             return;
         }
         boolean anyFailed = false;
+        long started = System.nanoTime();
+        long startedAt = System.currentTimeMillis();
+        int ran = 0;
+        int total = 0;
+        for (Module module : modules) {
+            if (module.isEnabled()) {
+                total++;
+            }
+        }
         for (Module module : modules) {
             if (!module.isEnabled()) {
                 continue;
             }
+            long moduleStarted = System.nanoTime();
+            boolean ok = true;
             try {
                 module.execute(task.getMigration());
             } catch (RuntimeException e) {
+                ok = false;
                 // Any module failure (a MigrationException, or an unexpected one like a driver/pool
                 // error) is recorded and retried later, never propagated to crash the caller. Logged
                 // because the retry is the next restart: silence here is data that looks migrated.
@@ -49,7 +75,11 @@ public final class InstanceMigrator {
                         + ", will retry at the next start", e);
                 anyFailed = true;
             }
+            ran++;
+            timings.module(instanceId, module.getName(), millisSince(moduleStarted), ok);
+            progress.report(id, instanceId, ran, total, startedAt);
         }
+        timings.migration(id, instanceId, millisSince(started), ran);
         if (anyFailed) {
             log.markFailed(id, instanceId);
         } else {
@@ -80,6 +110,10 @@ public final class InstanceMigrator {
         } else {
             log.markApplied(rename.id(), instanceId);
         }
+    }
+
+    private static long millisSince(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
     }
 
     public static String migrationId(Task task) {

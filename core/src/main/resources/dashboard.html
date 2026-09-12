@@ -1,6 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>accounts — migrations</title>
+<title>accounts</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root {
@@ -119,34 +119,200 @@
     .clock { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+
+  /* ---- the one thing you came here with: a name ------------------------- */
+  form.find { margin: 1.8rem 0 0; position: relative; }
+  form.find input { width: 100%; font: inherit; font-size: 1.05rem; color: var(--fg);
+                    background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px;
+                    padding: .85rem 1.1rem .85rem 2.6rem; box-shadow: var(--shadow); }
+  form.find input::placeholder { color: var(--dim); }
+  form.find input:focus-visible { outline: 2px solid var(--go); outline-offset: -1px; }
+  form.find svg { position: absolute; left: .95rem; top: 50%; transform: translateY(-50%);
+                  width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 2; }
+  .hint { margin-top: .5rem; font-size: .78rem; color: var(--dim); }
+
+  .card { border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+          box-shadow: var(--shadow); margin-top: 1.1rem; overflow: hidden; }
+  .card > h2 { margin: 0; padding: .9rem 1.15rem; font-size: .9rem; font-weight: 600;
+               border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: .6rem; }
+  .card > h2 small { font-weight: 400; color: var(--dim); font-size: .76rem; }
+  .card .body { padding: 1.05rem 1.15rem 1.15rem; }
+
+  .who { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .who .name { font-size: 1.05rem; font-weight: 600; }
+  .ids { display: flex; flex-direction: column; gap: .3rem; margin-top: .9rem; }
+  .id { display: flex; align-items: center; gap: .6rem; font-family: var(--mono); font-size: .78rem; }
+  .id .tag { color: var(--muted); min-width: 4.6rem; }
+  .id .val { color: var(--fg); cursor: pointer; border-bottom: 1px dotted var(--line-2); }
+  .id .val:hover { border-bottom-color: var(--go); }
+  .id .missing { color: var(--dim); }
+
+  .doing { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.05rem; align-items: center; }
+  .btn { font: inherit; font-size: .85rem; font-weight: 500; cursor: pointer; color: var(--bg);
+         background: var(--go); border: 0; border-radius: 999px; padding: .45rem 1.1rem;
+         transition: filter .16s ease; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+  .btn.ghost { background: var(--panel-2); color: var(--fg); border: 1px solid var(--line-2); }
+  .btn.small { font-size: .78rem; padding: .3rem .8rem; }
+  .btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .outcome { font-family: var(--mono); font-size: .78rem; }
+  .outcome.ok { color: var(--go); }
+  .outcome.bad { color: var(--late); }
+
+  .transfer { padding: .85rem 1.15rem; border-top: 1px solid var(--line); }
+  .transfer:first-child { border-top: 0; }
+  .transfer .when { font-family: var(--mono); font-size: .74rem; color: var(--muted); }
+  .transfer .pair { font-family: var(--mono); font-size: .76rem; margin-top: .25rem;
+                    overflow-wrap: anywhere; }
+  .chips { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .55rem; align-items: center; }
+  .chip { font-family: var(--mono); font-size: .7rem; border-radius: 999px; padding: .16rem .6rem;
+          border: 1px solid var(--line-2); color: var(--muted); }
+  .chip.ok { color: var(--go); border-color: color-mix(in srgb, var(--go) 45%, var(--line)); }
+  .chip.wait { color: var(--wait); border-color: color-mix(in srgb, var(--wait) 45%, var(--line)); }
+  .chip.bad { color: var(--late); border-color: color-mix(in srgb, var(--late) 50%, var(--line)); }
+
+  /* ---- what is moving, per server ---------------------------------------- */
+  .live { padding: .9rem 1.15rem 1rem; border-top: 1px solid var(--line); }
+  .live:first-child { border-top: 0; }
+  .live .top { display: flex; align-items: center; gap: .6rem; }
+  .live .top .label { margin-left: auto; }
+  .lanes { display: flex; flex-direction: column; gap: .45rem; margin-top: .7rem; }
+  .lane { display: grid; grid-template-columns: minmax(5.5rem, 9rem) 1fr auto; gap: .8rem;
+          align-items: center; font-size: .82rem; }
+  .lane .who { font-family: var(--mono); font-size: .76rem; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  .lane .track { display: block; height: 8px; border-radius: 999px; background: var(--panel-2);
+                 border: 1px solid var(--line); overflow: hidden; }
+  /* Colour is pace, not state: green while a server is inside its own usual time, amber once it is
+     over it, red when it is well over. A server that is always slow is not a fault — it is a server
+     with more to move — so it stays green while it behaves like itself. */
+  .lane .fill { display: block; height: 100%; border-radius: 999px; background: var(--go);
+                transition: width .45s cubic-bezier(.2,.7,.3,1); }
+  .lane.late .fill { background: var(--wait); }
+  .lane.stalled .fill { background: var(--late); }
+  .lane.idle .fill { background: var(--dim); }
+  .lane .n { font-family: var(--mono); font-size: .72rem; color: var(--muted);
+             min-width: 7.5rem; text-align: right; }
+  .lane.done .n { color: var(--go); }
+  .lane.late .n { color: var(--wait); }
+  .lane.stalled .n { color: var(--late); }
+
+  .servers { display: flex; flex-direction: column; }
+  .server { display: grid; grid-template-columns: 1fr auto auto; gap: .9rem; align-items: center;
+            padding: .55rem 1.15rem; border-top: 1px solid var(--line); font-size: .84rem; }
+  .server:first-child { border-top: 0; }
+  .server .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--go);
+                 display: inline-block; margin-right: .55rem; }
+  .server .dot.off { background: var(--dim); }
+  .server .n { font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+
+  /* ---- where a player's data actually sits ------------------------------- */
+  .probe { margin-top: 1.1rem; }
+  .srv { border-top: 1px solid var(--line); padding: .7rem 0; }
+  .srv:first-child { border-top: 0; }
+  .srv .head { display: flex; align-items: center; gap: .6rem; font-size: .86rem; }
+  .srv .head .count { font-family: var(--mono); font-size: .74rem; color: var(--muted);
+                      margin-left: auto; }
+  .finding { display: grid; grid-template-columns: minmax(7rem, 12rem) 1fr; gap: .7rem;
+             font-family: var(--mono); font-size: .74rem; margin-top: .35rem; }
+  .finding .mod { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .finding .say { color: var(--muted); overflow-wrap: anywhere; }
+  .finding.bad .say { color: var(--late); }
+  .finding.hold .say { color: var(--wait); }
+
+  details.more { margin-top: 1.4rem; }
+  details.more > summary { cursor: pointer; font-size: .82rem; color: var(--muted); padding: .3rem 0; }
+  details.more > summary:hover { color: var(--fg); }
+  .field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .7rem; }
+  .field input { font: inherit; font-family: var(--mono); font-size: .82rem; color: var(--fg);
+                 background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+                 padding: .45rem .7rem; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+  .bars { display: flex; flex-direction: column; gap: .45rem; }
+  .bar { display: grid; grid-template-columns: minmax(7rem, 13rem) 1fr auto; align-items: center;
+         gap: .7rem; font-size: .8rem; }
+  .bar .name { font-family: var(--mono); font-size: .74rem; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  .bar .track { display: block; height: 6px; border-radius: 999px; background: var(--panel-2);
+                border: 1px solid var(--line); overflow: hidden; }
+  .bar .fill { display: block; height: 100%; background: var(--go); border-radius: 999px; }
+  .bar.worst .fill { background: var(--late); }
+  .bar.slow .fill { background: var(--wait); }
+  .bar .ms { font-family: var(--mono); font-size: .74rem; color: var(--muted); text-align: right; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 <main>
   <header>
-    <h1>Transfers</h1>
+    <h1>accounts</h1>
     <span class="spacer"></span>
     <span class="stat"><span class="pulse" id="pulse"></span><span id="state">connecting</span></span>
-    <span class="stat" id="done-count"></span>
   </header>
-  <div id="list"></div>
+
+  <form class="find" id="find" autocomplete="off">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" name="q" spellcheck="false" autofocus
+           placeholder="A player's name, or a uuid" aria-label="Find a player">
+  </form>
+  <div class="hint" id="hint">Whoever the ticket is about. Their name is enough.</div>
+
+  <div id="live"></div>
+  <div id="player"></div>
+
+  <div class="card" id="network-card">
+    <h2>The network <small id="net-note"></small></h2>
+    <div class="servers" id="servers"></div>
+  </div>
+
+  <details class="more">
+    <summary>Other things</summary>
+
+    <div class="card">
+      <h2>Move one identity onto another <small>when you already have both</small></h2>
+      <div class="body">
+        <div class="two">
+          <div class="field"><label class="label" for="p-from">from</label>
+            <input id="p-from" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
+          <div class="field"><label class="label" for="p-to">to</label>
+            <input id="p-to" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000"></div>
+        </div>
+        <button class="btn ghost" id="p-go">Move it</button>
+        <div class="outcome" id="p-out"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Where the time goes <small>average per module, slowest first</small></h2>
+      <div class="body"><div class="bars" id="a-modules"></div></div>
+    </div>
+  </details>
 </main>
 <script>
   const token = new URLSearchParams(location.search).get('token') || '';
-  const list = document.getElementById('list');
-  const stateEl = document.getElementById('state');
-  const pulseEl = document.getElementById('pulse');
-  const doneEl = document.getElementById('done-count');
-
-  const seen = new Map();
-  let completed = 0;
-  const key = m => m.from + '>' + m.to;
+  const q = id => document.getElementById(id);
   const esc = s => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-  const since = ms => {
-    const s = Math.floor(ms / 1000);
-    return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + String(s % 60).padStart(2, '0') + 's';
+  const ms = v => v < 1000 ? Math.round(v) + ' ms'
+                : v < 60000 ? (v / 1000).toFixed(1) + ' s'
+                : Math.floor(v / 60000) + 'm ' + String(Math.round((v % 60000) / 1000)).padStart(2, '0') + 's';
+  const ago = at => {
+    if (!at) return 'at some point';
+    const s = Math.floor((Date.now() - at) / 1000);
+    if (s < 90) return 'just now';
+    if (s < 5400) return Math.round(s / 60) + ' minutes ago';
+    if (s < 172800) return Math.round(s / 3600) + ' hours ago';
+    return new Date(at).toISOString().slice(0, 10);
+  };
+  const api = async (path, opts) => {
+    const sep = path.indexOf('?') >= 0 ? '&' : '?';
+    const r = await fetch('api/' + path + sep + 'token=' + encodeURIComponent(token),
+                          Object.assign({cache: 'no-store'}, opts || {}));
+    if (!r.ok) throw new Error(r.status === 401 ? 'token rejected'
+                             : r.status === 403 ? 'this panel is read-only' : await r.text());
+    return r;
   };
 
-  /* An identity is a 32-hex string nobody can read. Draw it instead: same UUID always gives the same
-     mark and the same hue, so two rows for the same player are recognisably the same account. */
   function hash(str) {
     let h = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
@@ -171,125 +337,274 @@
               <g fill="${fill}">${cells}</g></svg>`;
   }
 
-  function render(m, node) {
-    const pending = m.waitingOn || [], applied = m.applied || [];
-    const cells = Array.from({length: m.expectedCount}, (_, i) =>
-      `<span class="cell ${i < m.appliedCount ? 'on' : 'off'}"></span>`).join('');
-    const chips = list => list.map(([n, state]) =>
-      `<span class="chip ${state}"><i class="dot"></i>${esc(n)}</span>`).join('');
-    node.innerHTML = `
-      <button class="head" aria-expanded="false">
-        <span class="glyphs">${glyph(m.from, 'from')}<span class="becomes">→</span>${glyph(m.to, 'to')}</span>
-        <span class="who">
-          <span class="name">${esc(m.username || 'unknown player')}</span>
-          <span class="sub">identity moved on <b>${m.appliedCount}</b> of <b>${m.expectedCount}</b> servers</span>
-        </span>
-        <span class="right"><span class="clock" data-clock></span><i class="chev"></i></span>
-      </button>
-      <div class="cells" style="grid-template-columns: repeat(${m.expectedCount}, 1fr)">${cells}</div>
-      <div class="detail"><div class="inner"><div class="pad">
-        <div class="field"><span class="label">previous identity</span>
-          <span class="val"><code>${esc(m.from)}</code><button class="copy" data-copy="${esc(m.from)}">copy</button></span></div>
-        <div class="field"><span class="label">new identity</span>
-          <span class="val"><code>${esc(m.to)}</code><button class="copy" data-copy="${esc(m.to)}">copy</button></span></div>
-        <div class="field"><span class="label">servers</span>
-          <span class="instances">${chips(applied.map(n => [n, '']).concat(pending.map(n => [n, 'pending'])))}</span></div>
-      </div></div></div>`;
-    const head = node.querySelector('.head');
-    head.addEventListener('click', () => {
-      const open = node.classList.toggle('open');
-      head.setAttribute('aria-expanded', String(open));
+
+  const mark = uuid => uuid ? glyph(uuid, 'glyph') : '';
+
+  /* ---- the player, which is the whole point ------------------------------ */
+  let current = null;
+
+  async function look(query) {
+    const box = q('player');
+    if (!query) { box.innerHTML = ''; current = null; return; }
+    box.innerHTML = '<div class="card"><div class="body"><span class="label">looking…</span></div></div>';
+    let d;
+    try { d = await (await api('player?q=' + encodeURIComponent(query))).json(); }
+    catch (e) { box.innerHTML = '<div class="card"><div class="body"><span class="outcome bad">' +
+                                 esc(e.message) + '</span></div></div>'; return; }
+    current = d;
+    box.innerHTML = card(d);
+    wire(d);
+  }
+
+  function card(d) {
+    const ids = [];
+    if (d.offline) ids.push(row('cracked', d.offline));
+    if (d.premium) ids.push(row('premium', d.premium));
+    else if (d.name) ids.push('<div class="id"><span class="tag">premium</span>' +
+                              '<span class="missing">Mojang has no account by that name</span></div>');
+    if (d.uuid) ids.push(row('identity', d.uuid));
+
+    const transfers = (d.transfers || []);
+    const canMove = d.actions && d.offline && d.premium;
+    const head = '<div class="who">' + mark(d.offline || d.uuid) +
+      (d.premium ? '<span style="color:var(--muted)">→</span>' + mark(d.premium) : '') +
+      '<span class="name">' + esc(d.name || d.uuid) + '</span></div>';
+
+    let doing = '<div class="doing">';
+    if (canMove) {
+      doing += '<button class="btn" id="go-move">Move them to premium</button>';
+    } else if (d.name && !d.premium) {
+      doing += '<span class="label">nothing to move them to</span>';
+    } else if (!d.actions) {
+      doing += '<span class="label">read-only panel</span>';
+    }
+    for (const [tag, id] of [['cracked', d.offline], ['premium', d.premium], ['identity', d.uuid]]) {
+      if (id) doing += '<button class="btn ghost small" data-probe="' + esc(id) + '" ' +
+                       'data-tag="' + tag + '">Where is their ' + tag + ' data?</button>';
+    }
+    doing += '<span class="outcome" id="go-out"></span></div><div class="probe" id="probe"></div>';
+
+    const history = transfers.length
+      ? transfers.map(t => transferRow(t, d.actions)).join('')
+      : '<div class="transfer"><span class="label">no transfer on record</span>' +
+        '<div class="pair" style="color:var(--dim)">Nothing has ever moved this account. ' +
+        'If they say they lost something, it never happened — not that it went wrong.</div></div>';
+
+    return '<div class="card"><div class="body">' + head +
+             '<div class="ids">' + ids.join('') + '</div>' + doing + '</div></div>' +
+           '<div class="card"><h2>Transfers <small>' +
+             (transfers.length ? transfers.length + ' on record' : 'none yet') +
+           '</small></h2>' + history + '</div>';
+  }
+
+  const row = (tag, value) =>
+    '<div class="id"><span class="tag">' + tag + '</span>' +
+    '<span class="val" data-copy="' + esc(value) + '" title="click to copy">' + esc(value) + '</span></div>';
+
+  function transferRow(t, actions) {
+    const chips = [];
+    const failed = new Set(t.failed || []);
+    for (const s of t.applied || []) chips.push('<span class="chip ok">' + esc(s) + '</span>');
+    // A server that failed is not also waiting: it tried, and it is why this one is not finished.
+    for (const s of t.waitingOn || []) if (!failed.has(s)) chips.push('<span class="chip wait">' + esc(s) + ' waiting</span>');
+    for (const s of failed) chips.push('<span class="chip bad">' + esc(s) + ' failed</span>');
+    const retry = (!t.complete && actions)
+      ? '<button class="btn ghost small" data-retry="' + esc(t.from) + '|' + esc(t.to) + '|' +
+        esc(t.username || '') + '">Send it again</button>' : '';
+    // A transfer still on the wire has no start recorded yet; saying "at some point" about something
+    // happening right now reads as a fault.
+    const when = t.startedAt ? esc(ago(t.startedAt)) + (t.complete ? ' · done everywhere' : ' · not finished')
+                             : 'moving now';
+    return '<div class="transfer"><div class="when">' + when + '</div>' +
+      '<div class="pair">' + esc(t.from) + ' → ' + esc(t.to) + '</div>' +
+      '<div class="chips">' + (chips.join('') || '<span class="label">no server has answered</span>') +
+      retry + '</div></div>';
+  }
+
+  function wire(d) {
+    for (const el of document.querySelectorAll('[data-copy]')) {
+      el.addEventListener('click', () => navigator.clipboard && navigator.clipboard.writeText(el.dataset.copy));
+    }
+    const move = q('go-move');
+    if (move) move.addEventListener('click', () => {
+      if (!confirm('Move ' + (d.name || '') + '\n\nfrom ' + d.offline + '\nto ' + d.premium +
+                   '\n\nEvery server applies this. Back up first.')) return;
+      act({from: d.offline, to: d.premium, username: d.name || ''}, q('go-out'));
     });
-    node.querySelectorAll('.copy').forEach(btn => btn.addEventListener('click', event => {
-      event.stopPropagation();
-      navigator.clipboard?.writeText(btn.dataset.copy);
-      btn.textContent = 'copied'; btn.classList.add('ok');
-      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('ok'); }, 1400);
-    }));
-  }
-
-  function tickClocks() {
-    const now = Date.now();
-    for (const [, entry] of seen) {
-      const clock = entry.node.querySelector('[data-clock]');
-      if (!clock) continue;
-      const age = now - entry.firstSeen;
-      clock.textContent = since(age);
-      entry.node.classList.toggle('late', age > 45000 && !entry.node.classList.contains('done'));
+    for (const el of document.querySelectorAll('[data-probe]')) {
+      el.addEventListener('click', () => probe(el.dataset.probe, el.dataset.tag));
+    }
+    for (const el of document.querySelectorAll('[data-retry]')) {
+      el.addEventListener('click', () => {
+        const [from, to, username] = el.dataset.retry.split('|');
+        act({from: from, to: to, username: username}, q('go-out'));
+      });
     }
   }
 
-  function retire(entry, k) {
-    entry.node.classList.add('done');
-    entry.node.querySelectorAll('.cell').forEach(c => { c.className = 'cell on'; });
-    const total = entry.data.expectedCount;
-    const sub = entry.node.querySelector('.sub');
-    if (sub) sub.innerHTML = `identity moved on <b>${total}</b> of <b>${total}</b> servers`;
-    const clock = entry.node.querySelector('[data-clock]');
-    if (clock) clock.textContent = 'done';
-    seen.delete(k);
-    doneEl.textContent = ++completed + ' completed';
-    setTimeout(() => {
-      entry.node.classList.add('leaving');
-      setTimeout(() => entry.node.remove(), 560);
-    }, 1700);
+  /* Asking every server is slow by nature — it waits on their databases — so it is a button, never
+     something the page does on its own while you are reading it. */
+  async function probe(uuid, tag) {
+    const box = q('probe');
+    box.innerHTML = '<div class="card"><div class="body"><span class="label">asking every server…</span></div></div>';
+    let d;
+    try { d = await (await api('diagnose?uuid=' + encodeURIComponent(uuid))).json(); }
+    catch (e) { box.innerHTML = '<div class="card"><div class="body"><span class="outcome bad">' +
+                                esc(e.message) + '</span></div></div>'; return; }
+    const servers = d.servers || {};
+    const names = Object.keys(servers);
+    const body = names.map(name => {
+      const findings = servers[name] || [];
+      const verified = findings.filter(f => f.status === 'VERIFIED').length;
+      const worth = findings.filter(f => f.status !== 'VERIFIED' && f.status !== 'NOT_FOUND');
+      return '<div class="srv"><div class="head"><b>' + esc(name) + '</b>' +
+        '<span class="count">' + verified + ' found' +
+        (worth.length ? ' · ' + worth.length + ' to look at' : '') + '</span></div>' +
+        worth.map(f => '<div class="finding ' +
+          (f.status === 'HELD_BY_PLUGIN' ? 'hold' : 'bad') + '"><span class="mod">' + esc(f.module) +
+          '</span><span class="say">' + esc(f.status.toLowerCase().replace(/_/g, ' ')) + ' — ' +
+          esc(f.detail) + '</span></div>').join('') + '</div>';
+    }).join('');
+    const silent = (d.silent || []).length
+      ? '<div class="srv"><div class="head"><span class="outcome bad">' +
+        (d.silent || []).map(esc).join(', ') + ' did not answer</span></div></div>' : '';
+    box.innerHTML = '<div class="card"><h2>Their ' + esc(tag) + ' data <small>as each server reports it' +
+      '</small></h2><div class="body">' + (body + silent || '<span class="label">nobody answered</span>') +
+      '</div></div>';
   }
 
-  async function poll() {
+  async function act(fields, outEl) {
+    outEl.className = 'outcome';
+    outEl.textContent = 'working…';
     try {
-      const r = await fetch('api/migrations?token=' + encodeURIComponent(token), {cache: 'no-store'});
-      if (!r.ok) throw new Error(r.status === 401 ? 'token rejected' : 'HTTP ' + r.status);
-      const rows = (await r.json()).inFlight || [];
-      pulseEl.classList.remove('off');
-      stateEl.textContent = rows.length ? rows.length + (rows.length > 1 ? ' open' : ' open') : 'idle';
-
-      const live = new Set();
-      for (const m of rows) {
-        const k = key(m); live.add(k);
-        let entry = seen.get(k);
-        if (!entry) {
-          const node = document.createElement('div');
-          node.className = 'row';
-          list.prepend(node);
-          entry = {firstSeen: Date.now(), node, data: null};
-          seen.set(k, entry);
-        }
-        if (JSON.stringify(entry.data) !== JSON.stringify(m)) {
-          const wasOpen = entry.node.classList.contains('open');
-          entry.data = m;
-          render(m, entry.node);
-          if (wasOpen) {
-            entry.node.classList.add('open');
-            entry.node.querySelector('.head').setAttribute('aria-expanded', 'true');
-          }
-        }
-      }
-      for (const [k, entry] of Array.from(seen)) if (!live.has(k)) retire(entry, k);
-
-      const hasRows = list.querySelector('.row');
-      const empty = list.querySelector('.empty');
-      if (!hasRows && !empty) {
-        list.insertAdjacentHTML('beforeend',
-          '<div class="empty"><span class="label">nothing in transit</span>' +
-          'Every migration on record has been applied by every server.</div>');
-      } else if (hasRows && empty) {
-        empty.remove();
-      }
+      const r = await api('actions/migrate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams(fields).toString()
+      });
+      outEl.className = 'outcome ok';
+      outEl.textContent = await r.text();
+      setTimeout(() => look(q('q').value.trim()), 1200);
     } catch (e) {
-      pulseEl.classList.add('off');
-      stateEl.innerHTML = '<span class="err">' + esc(e.message) + '</span>';
+      outEl.className = 'outcome bad';
+      outEl.textContent = e.message;
     }
   }
+
+  /* ---- what is moving: one lane per server, filling as it works ----------- */
+  function lanes(m) {
+    const applied = new Set(m.applied || []);
+    const progress = m.progress || {};
+    // Every server this transfer is waiting on, plus the ones already through it.
+    const servers = [...new Set([...(m.applied || []), ...(m.waitingOn || [])])];
+    const rows = servers.map(name => {
+      if (applied.has(name)) {
+        return lane(name, 100, 'done', 'done');
+      }
+      const raw = progress[name];
+      if (!raw) {
+        return lane(name, 0, 'idle', 'waiting');
+      }
+      const [counts, startedAt] = raw.split('@');
+      const [done, total] = counts.split('/').map(Number);
+      const pct = total > 0 ? Math.min(99, Math.round(100 * done / total)) : 0;
+      const usual = typical(name);
+      const elapsed = startedAt ? Date.now() - Number(startedAt) : 0;
+      // Against its own usual time, not against the other servers: one that always takes nine seconds
+      // is not slow, it has eleven gigabytes of worlds.
+      let cls = '';
+      if (usual && elapsed > usual * 2) cls = 'stalled';
+      else if (usual && elapsed > usual * 1.25) cls = 'late';
+      const note = done + '/' + total + (usual ? ' · ' + ms(elapsed) + ' of ~' + ms(usual) : '');
+      return lane(name, pct, cls, note);
+    }).join('');
+    return '<div class="live"><div class="top">' + mark(m.from) +
+      '<span style="color:var(--muted)">→</span>' + mark(m.to) +
+      '<span class="label">' + (m.appliedCount || 0) + ' of ' + (m.expectedCount || 0) +
+      ' servers</span></div><div class="lanes">' + rows + '</div></div>';
+  }
+
+  const lane = (name, pct, cls, note) =>
+    '<div class="lane ' + cls + '"><span class="who">' + esc(name) + '</span>' +
+    '<span class="track"><span class="fill" style="width:' + pct + '%"></span></span>' +
+    '<span class="n">' + esc(note) + '</span></div>';
+
+  /* What this server usually takes for a whole transfer, from what it has actually done before. */
+  let averages = {};
+  const typical = name => averages[name] || 0;
+
+  /* ---- the glance: what is moving, and whether the network is all here ---- */
+  async function refresh() {
+    let live = [], stats = null;
+    try {
+      live = (await (await api('migrations')).json()).inFlight || [];
+      q('pulse').classList.remove('off');
+      q('state').textContent = live.length ? live.length + ' moving' : 'idle';
+    } catch (e) {
+      q('pulse').classList.add('off');
+      q('state').innerHTML = '<span class="outcome bad">' + esc(e.message) + '</span>';
+      return;
+    }
+    // The averages first: a lane's colour is its pace against them, and a lane drawn before they
+    // arrive would be green for a second whatever it was doing.
+    try { stats = await (await api('analytics')).json(); } catch (e) { stats = null; }
+    if (stats) {
+      averages = {};
+      for (const i of stats.instances || []) averages[i.name] = i.average;
+    }
+
+    q('live').innerHTML = live.length
+      ? '<div class="card"><h2>Moving right now <small>' + live.length +
+        (live.length > 1 ? ' transfers' : ' transfer') + '</small></h2>' +
+        live.map(lanes).join('') + '</div>'
+      : '';
+
+    if (!stats) return;
+    const active = new Set(stats.active || []);
+    const known = (stats.instances || []).slice().sort((a, b) => b.average - a.average);
+    const names = new Set([...active, ...known.map(i => i.name)]);
+    q('servers').innerHTML = [...names].map(n => {
+      const i = known.find(k => k.name === n);
+      return '<div class="server"><span><span class="dot' + (active.has(n) ? '' : ' off') + '"></span>' +
+        esc(n) + '</span><span class="n">' + (i ? i.runs + ' transfers' : 'no transfer yet') +
+        '</span><span class="n">' + (i ? ms(i.average) : '—') + '</span></div>';
+    }).join('') || '<div class="server"><span class="label">no server has checked in</span></div>';
+    const typical = known.length ? ms(Math.max(...known.map(i => i.average))) : null;
+    q('net-note').textContent = active.size + ' of ' + names.size + ' here' +
+      (typical ? ' · a transfer takes about ' + typical : '');
+
+    const mods = (stats.modules || []).sort((a, b) => b.average - a.average).slice(0, 10);
+    const peak = mods.length ? mods[0].average : 1;
+    q('a-modules').innerHTML = mods.map((m, idx) =>
+      '<div class="bar ' + (idx === 0 ? 'worst' : m.average > peak / 3 ? 'slow' : '') + '">' +
+      '<span class="name" title="' + esc(m.name) + '">' + esc(m.name) + '</span>' +
+      '<span class="track"><span class="fill" style="width:' +
+      Math.max(1, Math.round(100 * m.average / (peak || 1))) + '%"></span></span>' +
+      '<span class="ms">' + ms(m.average) + '</span></div>').join('') ||
+      '<span class="label">no transfer has been measured yet</span>';
+  }
+
+  let typing = null;
+  q('q').addEventListener('input', () => {
+    clearTimeout(typing);
+    const value = q('q').value.trim();
+    typing = setTimeout(() => look(value), 350);
+  });
+  q('find').addEventListener('submit', e => { e.preventDefault(); look(q('q').value.trim()); });
+
+  q('p-go').addEventListener('click', () => {
+    const from = q('p-from').value.trim(), to = q('p-to').value.trim();
+    if (!from || !to) { q('p-out').className = 'outcome bad'; q('p-out').textContent = 'both are required'; return; }
+    if (!confirm('Move\n\n' + from + '\nto ' + to + '\n\nEvery server applies this.')) return;
+    act({from: from, to: to, username: ''}, q('p-out'));
+  });
 
   if (window.matchMedia('(prefers-color-scheme: light)').matches) {
     document.documentElement.dataset.light = '1';
   }
-  poll();
-  setInterval(poll, 2000);
-  setInterval(tickClocks, 1000);
-  // A background tab has its timers throttled to a crawl, so coming back to the panel would show a
-  // frozen picture for a moment. Catch up the instant it is looked at again.
+  refresh();
+  setInterval(refresh, 4000);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { poll(); tickClocks(); }
+    if (document.visibilityState === 'visible') refresh();
   });
 </script>
